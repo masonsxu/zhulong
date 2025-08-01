@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/url"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -61,11 +63,11 @@ type UploadResult struct {
 
 // FileInfo 文件信息
 type FileInfo struct {
-	Key         string    // 文件名/键
-	Size        int64     // 文件大小
-	ContentType string    // 内容类型
+	Key          string    // 文件名/键
+	Size         int64     // 文件大小
+	ContentType  string    // 内容类型
 	LastModified time.Time // 最后修改时间
-	ETag        string    // ETag
+	ETag         string    // ETag
 }
 
 // NewMinIOStorage 创建MinIO存储服务实例
@@ -73,7 +75,7 @@ func NewMinIOStorage(config *MinIOConfig) (*MinIOStorage, error) {
 	if config == nil {
 		return nil, fmt.Errorf("配置不能为空")
 	}
-	
+
 	// 创建MinIO客户端
 	client, err := minio.New(config.GetEndpoint(), &minio.Options{
 		Creds:  credentials.NewStaticV4(config.GetAccessKey(), config.GetSecretKey(), ""),
@@ -83,7 +85,7 @@ func NewMinIOStorage(config *MinIOConfig) (*MinIOStorage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("创建MinIO客户端失败: %w", err)
 	}
-	
+
 	return &MinIOStorage{
 		client: client,
 		config: config,
@@ -132,14 +134,14 @@ func (s *MinIOStorage) RemoveBucket(ctx context.Context, bucketName string) erro
 // UploadFile 上传文件
 func (s *MinIOStorage) UploadFile(ctx context.Context, bucketName, objectName string, data []byte, contentType string) (*UploadResult, error) {
 	reader := bytes.NewReader(data)
-	
+
 	info, err := s.client.PutObject(ctx, bucketName, objectName, reader, int64(len(data)), minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("上传文件失败: %w", err)
 	}
-	
+
 	return &UploadResult{
 		ETag: info.ETag,
 		Size: info.Size,
@@ -174,7 +176,7 @@ func (s *MinIOStorage) GetFileInfo(ctx context.Context, bucketName, objectName s
 	if err != nil {
 		return nil, fmt.Errorf("获取文件信息失败: %w", err)
 	}
-	
+
 	return &FileInfo{
 		Key:          stat.Key,
 		Size:         stat.Size,
@@ -196,16 +198,16 @@ func (s *MinIOStorage) DeleteFile(ctx context.Context, bucketName, objectName st
 // ListFiles 列出文件
 func (s *MinIOStorage) ListFiles(ctx context.Context, bucketName, prefix string) ([]*FileInfo, error) {
 	var files []*FileInfo
-	
+
 	objectCh := s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{
 		Prefix: prefix,
 	})
-	
+
 	for object := range objectCh {
 		if object.Err != nil {
 			return nil, fmt.Errorf("列出文件失败: %w", object.Err)
 		}
-		
+
 		files = append(files, &FileInfo{
 			Key:          object.Key,
 			Size:         object.Size,
@@ -214,6 +216,66 @@ func (s *MinIOStorage) ListFiles(ctx context.Context, bucketName, prefix string)
 			ETag:         object.ETag,
 		})
 	}
-	
+
 	return files, nil
+}
+
+// DownloadFile 下载文件
+func (s *MinIOStorage) DownloadFile(ctx context.Context, bucketName, objectName string) ([]byte, error) {
+	// 获取对象
+	object, err := s.client.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("获取文件失败: %w", err)
+	}
+	defer object.Close()
+
+	// 读取所有数据
+	data, err := io.ReadAll(object)
+	if err != nil {
+		return nil, fmt.Errorf("读取文件数据失败: %w", err)
+	}
+
+	return data, nil
+}
+
+// GeneratePresignedURL 生成预签名URL（支持不同HTTP方法）
+func (s *MinIOStorage) GeneratePresignedURL(ctx context.Context, bucketName, objectName string, expiry time.Duration, method string) (string, error) {
+	// 将HTTP方法字符串转换为MinIO的方法类型
+	var reqParams url.Values
+
+	switch method {
+	case "GET":
+		presignedURL, err := s.client.PresignedGetObject(ctx, bucketName, objectName, expiry, reqParams)
+		if err != nil {
+			return "", fmt.Errorf("生成GET预签名URL失败: %w", err)
+		}
+		return presignedURL.String(), nil
+
+	case "PUT":
+		presignedURL, err := s.client.PresignedPutObject(ctx, bucketName, objectName, expiry)
+		if err != nil {
+			return "", fmt.Errorf("生成PUT预签名URL失败: %w", err)
+		}
+		return presignedURL.String(), nil
+
+	case "DELETE":
+		// 对于DELETE方法，使用PresignedGetObject生成URL，但注意这实际上是GET方法
+		// 在实际应用中，DELETE操作通常不通过预签名URL完成
+		presignedURL, err := s.client.PresignedGetObject(ctx, bucketName, objectName, expiry, reqParams)
+		if err != nil {
+			return "", fmt.Errorf("生成DELETE预签名URL失败: %w", err)
+		}
+		return presignedURL.String(), nil
+
+	case "HEAD":
+		// 对于HEAD方法，使用PresignedGetObject生成URL
+		presignedURL, err := s.client.PresignedGetObject(ctx, bucketName, objectName, expiry, reqParams)
+		if err != nil {
+			return "", fmt.Errorf("生成HEAD预签名URL失败: %w", err)
+		}
+		return presignedURL.String(), nil
+
+	default:
+		return "", fmt.Errorf("不支持的HTTP方法: %s", method)
+	}
 }
