@@ -4,26 +4,73 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	api "github.com/manteia/zhulong/biz/model/zhulong/api"
+	"github.com/manteia/zhulong/biz/service"
 )
+
+// 全局视频服务实例
+var videoService *service.VideoService
+
+// init 初始化服务
+func init() {
+	var err error
+	videoService, err = service.NewVideoService()
+	if err != nil {
+		panic(fmt.Sprintf("初始化视频服务失败: %v", err))
+	}
+}
 
 // UploadVideo .
 // @router /api/v1/videos [POST]
 func UploadVideo(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req api.VideoUploadRequest
-	err = c.BindAndValidate(&req)
+	
+	// 获取标题和描述
+	title := c.PostForm("title")
+	description := c.PostForm("description")
+	
+	if title != "" {
+		req.Title = title
+	}
+	if description != "" {
+		req.Description = description
+	}
+
+	// 获取上传的文件
+	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		c.JSON(consts.StatusBadRequest, &api.VideoUploadResponse{
+			Base: &api.BaseResponse{
+				Code:    1001,
+				Message: "获取上传文件失败: " + err.Error(),
+			},
+		})
 		return
 	}
 
-	resp := new(api.VideoUploadResponse)
+	// 调用服务层处理上传
+	resp, err := videoService.UploadVideo(ctx, &req, fileHeader)
+	if err != nil {
+		c.JSON(consts.StatusInternalServerError, &api.VideoUploadResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "服务器内部错误: " + err.Error(),
+			},
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 根据业务逻辑返回相应的HTTP状态码
+	if resp.Base.Code == 0 {
+		c.JSON(consts.StatusOK, resp)
+	} else {
+		c.JSON(consts.StatusBadRequest, resp)
+	}
 }
 
 // GetVideoList .
@@ -33,13 +80,37 @@ func GetVideoList(ctx context.Context, c *app.RequestContext) {
 	var req api.VideoListRequest
 	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		c.JSON(consts.StatusBadRequest, &api.VideoListResponse{
+			Base: &api.BaseResponse{
+				Code:    2000,
+				Message: "请求参数错误: " + err.Error(),
+			},
+			Videos: []*api.Video{},
+			Total:  0,
+		})
 		return
 	}
 
-	resp := new(api.VideoListResponse)
+	// 调用服务层处理
+	resp, err := videoService.GetVideoList(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusInternalServerError, &api.VideoListResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "服务器内部错误: " + err.Error(),
+			},
+			Videos: []*api.Video{},
+			Total:  0,
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 返回响应
+	if resp.Base.Code == 0 {
+		c.JSON(consts.StatusOK, resp)
+	} else {
+		c.JSON(consts.StatusBadRequest, resp)
+	}
 }
 
 // GetVideoDetail .
