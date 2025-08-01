@@ -398,8 +398,8 @@ func TestDownloadService_GenerateDownloadURL(t *testing.T) {
 func isStorageAvailable() bool {
 	storageConfig := &storage.MinIOConfig{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	}
@@ -418,8 +418,8 @@ func isStorageAvailable() bool {
 func setupTestStorage(t *testing.T) storage.StorageInterface {
 	storageConfig := &storage.MinIOConfig{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	}

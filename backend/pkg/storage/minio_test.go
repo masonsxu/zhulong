@@ -16,8 +16,8 @@ func TestMinIOStorage_Creation(t *testing.T) {
 	// 测试正常创建
 	storage, err := NewMinIOStorage(&MinIOConfig{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	})
@@ -212,8 +212,8 @@ func isMinIOAvailable() bool {
 	// 尝试创建一个存储实例并测试连接
 	storage, err := NewMinIOStorage(&MinIOConfig{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	})
@@ -230,8 +230,8 @@ func isMinIOAvailable() bool {
 func setupTestStorage(t *testing.T) *MinIOStorage {
 	config := &MinIOConfig{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	}
