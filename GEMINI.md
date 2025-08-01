@@ -1,6 +1,6 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Gemini when working with code in this repository.
 
 ## 项目概述
 
@@ -48,54 +48,41 @@ DELETE /api/v1/videos/:id      # 删除视频
 
 ## 项目结构
 
-### 基于hz工具的标准项目结构
-
 ```
 zhulong/
-├── idl/                    # IDL文件目录
-│   └── zhulong_api.thrift  # Thrift API定义文件
-├── backend/                # Hertz后端服务
-│   ├── biz/               # 业务逻辑层（hz生成）
-│   │   ├── handler/       # 处理器（hz生成）
-│   │   ├── model/         # 模型（hz生成）
-│   │   ├── router/        # 路由（hz生成）
-│   │   └── service/       # 业务服务层（手动实现）
-│   ├── pkg/               # 项目公共包
-│   │   ├── config/        # 配置管理
-│   │   ├── storage/       # MinIO存储层
-│   │   ├── utils/         # 工具函数
-│   │   └── middleware/    # 中间件
-│   ├── hertz_gen/         # hz生成的代码（不要手动修改）
-│   ├── build.sh           # 构建脚本（hz生成）
-│   ├── main.go            # 入口文件（hz生成）
-│   ├── router.go          # 路由注册（hz生成）
-│   ├── router_gen.go      # 路由生成（hz生成）
-│   ├── go.mod             # Go模块文件
-│   ├── go.sum             # Go依赖锁定
-│   └── output/            # 构建输出目录
-│       └── bootstrap.sh   # 启动脚本
-├── frontend/              # React前端应用
+├── backend/           # Hertz后端服务
+│   ├── cmd/          # 入口文件
+│   ├── pkg/          # 业务逻辑包
+│   │   ├── config/   # 配置管理
+│   │   ├── storage/  # MinIO存储层
+│   │   └── models/   # 数据模型
+│   ├── router/       # 路由配置
+│   ├── handler/      # API处理器
+│   ├── service/      # 业务服务层
+│   ├── repository/   # 数据访问层
+│   └── test/         # 测试文件
+├── frontend/         # React前端应用
 │   ├── src/
-│   │   ├── components/    # React组件
+│   │   ├── components/  # React组件
 │   │   │   ├── VideoUpload/    # 上传组件
 │   │   │   ├── VideoPlayer/    # 播放器组件
 │   │   │   └── VideoList/      # 列表组件
-│   │   ├── hooks/         # 自定义Hooks
-│   │   ├── services/      # API服务
-│   │   ├── utils/         # 工具函数
-│   │   └── __tests__/     # 测试文件
-│   ├── public/            # 静态资源
+│   │   ├── hooks/       # 自定义Hooks
+│   │   ├── services/    # API服务
+│   │   ├── utils/       # 工具函数
+│   │   └── __tests__/   # 测试文件
+│   ├── public/       # 静态资源
 │   └── package.json
-├── docs/                  # 项目文档
-├── config/                # 配置文件目录
-│   ├── README.md          # 配置说明
-│   ├── app.yml            # 应用配置模板
-│   ├── development.yml    # 开发环境配置
-│   └── production.yml     # 生产环境配置
-├── .env                   # 环境变量文件（项目根目录）
-├── .env.example           # 环境变量模板
-├── scripts/               # 构建脚本
-└── compose.yml            # 服务器端开发环境配置
+├── docs/             # 项目文档
+├── config/           # 配置文件目录
+│   ├── README.md     # 配置说明
+│   ├── app.yml       # 应用配置模板
+│   ├── development.yml # 开发环境配置
+│   └── production.yml  # 生产环境配置
+├── .env              # 环境变量文件（项目根目录）
+├── .env.example      # 环境变量模板
+├── scripts/          # 构建脚本
+└── compose.yml       # 服务器端开发环境配置
 ```
 
 ## 开发规范
@@ -110,11 +97,11 @@ zhulong/
 1. **任务开始前**: 
    - 在TODO.md中将任务状态从 `[ ]` 改为 `[*]`
    - 评估任务优先级和复杂度
-2. **开发过程中**:
+2. **开发过程中**: 
    - 遵循TDD流程：先写测试，再实现功能
    - 确保代码通过所有测试
    - 进行代码审查
-3. **任务完成后**:
+3. **任务完成后**: 
    - 将TODO状态从 `[*]` 改为 `[x]`
    - 更新项目总进度统计
    - 更新相关文档
@@ -125,63 +112,16 @@ zhulong/
 - 提交信息格式：`[TODO-ID] 简短描述`
 - 例如：`[BACKEND-001] 初始化Go项目结构`
 
-### 后端开发规范 (Hertz + hz工具)
-
-#### IDL驱动开发
-- **必须使用Thrift IDL定义API**: 所有API接口都通过Thrift IDL文件定义
-- **IDL文件位置**: 统一放置在项目根目录的 `idl/` 目录下
-- **版本管理**: IDL文件变更需要严格版本控制，避免破坏性变更
-- **代码生成**: 使用 `hz new` 和 `hz update` 命令进行代码生成
-
-#### hz工具使用规范
-```bash
-# 1. 初始化项目（仅首次）
-hz new --idl=../idl/zhulong_api.thrift --mod=github.com/yourusername/zhulong
-
-# 2. 更新代码（IDL变更后）
-hz update --idl=../idl/zhulong_api.thrift
-
-# 3. 构建项目
-sh build.sh
-
-# 4. 运行项目
-sh output/bootstrap.sh
-```
-
-#### 目录结构规范
-- **hertz_gen/**: hz生成的代码，**禁止手动修改**
-- **biz/handler/**: 业务处理器，实现具体的业务逻辑
-- **biz/service/**: 业务服务层，封装复杂的业务逻辑
-- **pkg/**: 项目公共包，可手动维护
-- **main.go**: 入口文件，由hz生成，一般不需要修改
-
-#### 开发流程
-1. **设计API**: 在IDL文件中定义接口
-2. **生成代码**: 使用hz工具生成脚手架代码
-3. **实现业务逻辑**: 在handler和service中实现具体逻辑
-4. **编写测试**: 为业务逻辑编写单元测试
-5. **构建运行**: 使用hz生成的构建脚本
-
-#### 代码规范
-- **遵循Go语言规范**: 使用gofmt、goimports格式化代码
-- **错误处理**: 统一的错误处理机制，使用hertz的错误响应格式
-- **日志记录**: 使用结构化日志，推荐使用hertz内置的hlog
-- **中间件使用**: 合理使用中间件处理跨切面关注点
-- **参数验证**: 利用Thrift IDL的类型系统进行参数验证
-
-#### MinIO集成规范
-- **SDK版本**: 使用最新稳定版本的MinIO Go SDK
-- **连接管理**: 使用连接池管理MinIO连接
-- **错误处理**: 统一处理MinIO相关错误
-- **预签名URL**: 所有文件访问通过预签名URL
-- **安全配置**: 严格配置访问权限和安全策略
-
-#### 性能和安全
-- **并发处理**: 充分利用Hertz的高并发特性
-- **内存管理**: 注意内存使用，避免内存泄漏
-- **安全验证**: 实现必要的身份验证和授权机制
-- **输入验证**: 严格验证所有输入参数
-- **HTTPS支持**: 生产环境必须使用HTTPS
+### 后端开发规范 (Hertz)
+- 使用Hertz框架时，应使用hz工具进行代码生成，以统一编码规范。
+- 使用标准的Go项目布局
+- 遵循Hertz框架的最佳实践
+- API设计遵循RESTful规范
+- 使用结构体标签进行数据验证
+- 统一的错误处理机制
+- 日志记录使用结构化格式
+- MinIO Go SDK集成最佳实践
+- 使用预签名URL确保安全访问
 
 ### 前端开发规范 (React)
 - 使用函数组件和Hooks
@@ -325,49 +265,21 @@ git push origin main develop --tags
 ## 常用命令
 
 ### 后端开发
-
-#### hz工具相关命令
 ```bash
-# 安装hz工具
-go install github.com/cloudwego/hertz/cmd/hz@latest
+# 运行开发服务器
+go run cmd/main.go
 
-# 初始化新项目（仅首次）
-cd backend
-hz new --idl=../idl/zhulong_api.thrift --mod=github.com/yourusername/zhulong
-
-# 更新项目（IDL变更后）
-hz update --idl=../idl/zhulong_api.thrift
-
-# 构建项目
-sh build.sh
-
-# 运行项目
-sh output/bootstrap.sh
-
-# 开发模式运行
-go run .
-```
-
-#### 常用开发命令
-```bash
 # 运行测试
 go test ./...
 
 # 代码格式化
 gofmt -w .
-goimports -w .
 
-# 依赖管理
-go mod tidy
-go mod download
+# 构建
+go build -o bin/zhulong cmd/main.go
 
-# 安装依赖
+# 安装MinIO Go SDK
 go get github.com/minio/minio-go/v7
-go get github.com/cloudwego/hertz
-
-# 检查代码质量
-go vet ./...
-golangci-lint run
 ```
 
 ### 前端开发
@@ -488,3 +400,5 @@ podman logs minio-server
 - **并发处理**: 支持多文件同时上传
 - **带宽限制**: 根据网络状况自动调节传输速度
 - **视频预加载**: 智能预加载提升播放体验
+
+```
