@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -46,18 +47,16 @@ func LoadConfig() *Config {
 		return globalConfig
 	}
 
-	// 加载.env文件，尝试多个位置
-	envPaths := []string{".env", "../.env", "../../.env"}
-	var envErr error
-	for _, path := range envPaths {
-		if err := godotenv.Load(path); err == nil {
-			break
+	// 查找.env文件，从当前目录开始向上查找到项目根目录
+	envFile := findEnvFile()
+	if envFile != "" {
+		if err := godotenv.Load(envFile); err != nil {
+			log.Printf("Warning: failed to load .env file from %s: %v", envFile, err)
 		} else {
-			envErr = err
+			log.Printf("Loaded .env file from: %s", envFile)
 		}
-	}
-	if envErr != nil {
-		log.Printf("Warning: .env file not found in any location, using environment variables: %v", envErr)
+	} else {
+		log.Printf("Warning: .env file not found, using environment variables")
 	}
 
 	port, _ := strconv.Atoi(getEnv("MINIO_PORT", "9000"))
@@ -83,6 +82,31 @@ func LoadConfig() *Config {
 	}
 
 	return globalConfig
+}
+
+// findEnvFile 查找.env文件，从当前目录向上查找
+func findEnvFile() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	// 向上查找.env文件，最多查找5级
+	for i := 0; i < 5; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath
+		}
+		
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// 已到达根目录
+			break
+		}
+		dir = parent
+	}
+	
+	return ""
 }
 
 // GetConfig 获取全局配置

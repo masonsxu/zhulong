@@ -1,0 +1,19 @@
+# 生产环境配置
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+minio:
+  endpoint: "${MINIO_HOST}:${MINIO_PORT}"
+  access_key: "${MINIO_ACCESS_KEY}"
+  secret_key: "${MINIO_SECRET_KEY}"
+  bucket: "zhulong-videos"
+  use_ssl: true
+
+jwt:
+  secret: "${JWT_SECRET}"
+  expire: "24h"
+
+upload:
+  max_size: "500MB"
+  allowed_types: "video/mp4,video/avi,video/webm,video/mov"

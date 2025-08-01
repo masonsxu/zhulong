@@ -74,9 +74,13 @@ zhulong/
 │   ├── public/       # 静态资源
 │   └── package.json
 ├── docs/             # 项目文档
-├── config/           # 配置文件
-│   ├── minio.yml     # MinIO配置
-│   └── app.yml       # 应用配置
+├── config/           # 配置文件目录
+│   ├── README.md     # 配置说明
+│   ├── app.yml       # 应用配置模板
+│   ├── development.yml # 开发环境配置
+│   └── production.yml  # 生产环境配置
+├── .env              # 环境变量文件（项目根目录）
+├── .env.example      # 环境变量模板
 ├── scripts/          # 构建脚本
 └── compose.yml       # 服务器端开发环境配置
 ```
