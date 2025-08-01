@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+bin/
+*.exe
+*.so
+*.dylib
+
+# Go specific
+go.sum
+*.test
+*.prof
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+*.out
+
+# Temporary files
+tmp/
+temp/
+
+# Storage
+storage/videos/
+storage/thumbnails/
+
+# Frontend specific
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Claude Code specific
+.claude/session*
