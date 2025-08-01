@@ -2,17 +2,17 @@
 
 ## 项目状态
 
-- 📋 **总进度**: 3/32 (9%)
+- 📋 **总进度**: 4/32 (12%)
 - 🚀 **当前阶段**: 项目初始化
 - 📅 **最后更新**: 2025-08-01
 
-## 第一阶段：项目基础设施 (3/8)
+## 第一阶段：项目基础设施 (4/8)
 
 ### 后端基础架构
 - [x] **BACKEND-001**: 初始化Go项目结构 (pkg, cmd, handler等)
 - [x] **BACKEND-002**: 集成Hertz框架，实现基础HTTP服务
 - [x] **BACKEND-003**: 配置MinIO Go SDK连接
-- [ ] **BACKEND-004**: 实现基础配置管理 (config/app.yml, config/minio.yml)
+- [x] **BACKEND-004**: 实现基础配置管理 (config/app.yml, config/minio.yml)
 
 ### 开发环境搭建
 - [ ] **DEVOPS-001**: 创建Podman Compose配置文件 (compose.yml)
