@@ -2,11 +2,9 @@ module github.com/manteia/zhulong
 
 go 1.24.4
 
-replace github.com/manteia/zhulong/router => ./router
-
 require (
 	github.com/cloudwego/hertz v0.10.1
-	github.com/manteia/zhulong/router v0.0.0-00010101000000-000000000000
+	github.com/hertz-contrib/cors v0.1.0
 	github.com/minio/minio-go/v7 v7.0.95
 )
 
@@ -23,8 +21,6 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hertz-contrib/cors v0.1.0 // indirect
-	github.com/hertz-contrib/logger/zap v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
@@ -37,9 +33,6 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
