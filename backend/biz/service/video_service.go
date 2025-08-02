@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -363,5 +364,96 @@ func (s *VideoService) videoListErrorResponse(code int32, message string) *api.V
 		},
 		Videos: []*api.Video{},
 		Total:  0,
+	}
+}
+
+// GetVideoDetail 获取视频详情
+func (s *VideoService) GetVideoDetail(ctx context.Context, req *api.VideoDetailRequest) (*api.VideoDetailResponse, error) {
+	// 参数验证
+	if err := s.validateVideoDetailRequest(req); err != nil {
+		return s.videoDetailErrorResponse(3000, err.Error()), nil
+	}
+
+	// 查询视频元数据
+	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
+	if err != nil {
+		return s.videoDetailErrorResponse(3001, "视频不存在"), nil
+	}
+
+	// 转换为API响应格式
+	video := s.convertMetadataToVideo(metadata)
+
+	return &api.VideoDetailResponse{
+		Base: &api.BaseResponse{
+			Code:    0,
+			Message: "获取成功",
+		},
+		Video: video,
+	}, nil
+}
+
+// validateVideoDetailRequest 验证视频详情请求
+func (s *VideoService) validateVideoDetailRequest(req *api.VideoDetailRequest) error {
+	if req.VideoID == "" {
+		return fmt.Errorf("视频ID不能为空")
+	}
+
+	// 验证视频ID格式（去除空格）
+	videoID := strings.TrimSpace(req.VideoID)
+	if videoID == "" {
+		return fmt.Errorf("视频ID不能为空或只包含空格")
+	}
+
+	// 更新请求中的videoID（去除空格）
+	req.VideoID = videoID
+
+	return nil
+}
+
+// convertMetadataToVideo 将元数据转换为Video结构
+func (s *VideoService) convertMetadataToVideo(metadata *metadata.FileMetadata) *api.Video {
+	video := &api.Video{
+		ID:            metadata.FileID,
+		Title:         metadata.Title,
+		Filename:      metadata.FileName,
+		ContentType:   metadata.ContentType,
+		Size:          metadata.FileSize,
+		Duration:      metadata.Duration,
+		Width:         0, // 默认值
+		Height:        0, // 默认值
+		StoragePath:   metadata.ObjectName,
+		ThumbnailPath: metadata.Thumbnail,
+		UploadedAt:    metadata.CreatedAt.UnixMilli(),
+		UpdatedAt:     metadata.UpdatedAt.UnixMilli(),
+	}
+
+	// 解析分辨率
+	if metadata.Resolution != "" {
+		s.parseResolution(metadata.Resolution, video)
+	}
+
+	return video
+}
+
+// parseResolution 解析分辨率字符串
+func (s *VideoService) parseResolution(resolution string, video *api.Video) {
+	// 尝试解析分辨率格式：如 "1920x1080"
+	var width, height int32
+	n, err := fmt.Sscanf(resolution, "%dx%d", &width, &height)
+	if err == nil && n == 2 && width > 0 && height > 0 {
+		video.Width = width
+		video.Height = height
+	}
+	// 解析失败时保持默认值0
+}
+
+// videoDetailErrorResponse 创建视频详情错误响应
+func (s *VideoService) videoDetailErrorResponse(code int32, message string) *api.VideoDetailResponse {
+	return &api.VideoDetailResponse{
+		Base: &api.BaseResponse{
+			Code:    code,
+			Message: message,
+		},
+		Video: nil,
 	}
 }

@@ -120,13 +120,39 @@ func GetVideoDetail(ctx context.Context, c *app.RequestContext) {
 	var req api.VideoDetailRequest
 	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		c.JSON(consts.StatusBadRequest, &api.VideoDetailResponse{
+			Base: &api.BaseResponse{
+				Code:    2000,
+				Message: "请求参数错误: " + err.Error(),
+			},
+			Video: nil,
+		})
 		return
 	}
 
-	resp := new(api.VideoDetailResponse)
+	// 调用服务层处理
+	resp, err := videoService.GetVideoDetail(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusInternalServerError, &api.VideoDetailResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "服务器内部错误: " + err.Error(),
+			},
+			Video: nil,
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 根据业务逻辑返回相应的HTTP状态码
+	if resp.Base.Code == 0 {
+		c.JSON(consts.StatusOK, resp)
+	} else if resp.Base.Code == 3001 {
+		// 视频不存在，返回404
+		c.JSON(consts.StatusNotFound, resp)
+	} else {
+		// 其他业务错误，返回400
+		c.JSON(consts.StatusBadRequest, resp)
+	}
 }
 
 // GetVideoPlayURL .
