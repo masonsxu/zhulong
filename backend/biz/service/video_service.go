@@ -537,3 +537,74 @@ func (s *VideoService) videoPlayURLErrorResponse(code int32, message string) *ap
 		ExpiresAt: 0,
 	}
 }
+
+// DeleteVideo 删除视频
+func (s *VideoService) DeleteVideo(ctx context.Context, req *api.VideoDeleteRequest) (*api.VideoDeleteResponse, error) {
+	// 参数验证
+	if err := s.validateVideoDeleteRequest(req); err != nil {
+		return s.videoDeleteErrorResponse(5000, err.Error()), nil
+	}
+
+	// 查询视频元数据确认视频存在
+	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
+	if err != nil {
+		return s.videoDeleteErrorResponse(5001, "视频不存在"), nil
+	}
+
+	// 删除视频文件
+	err = s.storageClient.DeleteFile(ctx, metadata.BucketName, metadata.ObjectName)
+	if err != nil {
+		return s.videoDeleteErrorResponse(5002, fmt.Sprintf("删除视频文件失败: %v", err)), nil
+	}
+
+	// 删除缩略图文件（如果存在）
+	if metadata.Thumbnail != "" {
+		err = s.storageClient.DeleteFile(ctx, metadata.BucketName, metadata.Thumbnail)
+		if err != nil {
+			// 缩略图删除失败不阻断流程，只记录日志
+			fmt.Printf("删除缩略图失败: %v\n", err)
+		}
+	}
+
+	// 删除元数据
+	err = s.metadataService.DeleteMetadata(ctx, req.VideoID)
+	if err != nil {
+		// 文件已删除但元数据删除失败，记录特定错误
+		return s.videoDeleteErrorResponse(5003, fmt.Sprintf("删除元数据失败: %v", err)), nil
+	}
+
+	return &api.VideoDeleteResponse{
+		Base: &api.BaseResponse{
+			Code:    0,
+			Message: "删除成功",
+		},
+	}, nil
+}
+
+// validateVideoDeleteRequest 验证删除视频请求
+func (s *VideoService) validateVideoDeleteRequest(req *api.VideoDeleteRequest) error {
+	if req.VideoID == "" {
+		return fmt.Errorf("视频ID不能为空")
+	}
+
+	// 验证视频ID格式（去除空格）
+	videoID := strings.TrimSpace(req.VideoID)
+	if videoID == "" {
+		return fmt.Errorf("视频ID不能为空")
+	}
+
+	// 更新请求中的videoID（去除空格）
+	req.VideoID = videoID
+
+	return nil
+}
+
+// videoDeleteErrorResponse 创建删除视频错误响应
+func (s *VideoService) videoDeleteErrorResponse(code int32, message string) *api.VideoDeleteResponse {
+	return &api.VideoDeleteResponse{
+		Base: &api.BaseResponse{
+			Code:    code,
+			Message: message,
+		},
+	}
+}
