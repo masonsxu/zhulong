@@ -26,6 +26,7 @@ require (
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect

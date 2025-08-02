@@ -2,25 +2,29 @@ package storage
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/manteia/zhulong/testconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestMinIOStorage_Creation 测试MinIO存储实例创建
 func TestMinIOStorage_Creation(t *testing.T) {
+	// 从环境变量获取测试配置
+	testConfig := testconfig.GetMinIOTestConfig()
+	config := &MinIOConfig{
+		Endpoint:  testConfig.GetEndpoint(),
+		AccessKey: testConfig.AccessKey,
+		SecretKey: testConfig.SecretKey,
+		UseSSL:    testConfig.UseSSL,
+		Region:    testConfig.Region,
+	}
+
 	// 测试正常创建
-	storage, err := NewMinIOStorage(&MinIOConfig{
-		Endpoint:  "localhost:9000",
-		AccessKey: "admin",
-		SecretKey: "admin123456",
-		UseSSL:    false,
-		Region:    "us-east-1",
-	})
+	storage, err := NewMinIOStorage(config)
 
 	require.NoError(t, err, "创建MinIO存储实例应该成功")
 	require.NotNil(t, storage, "存储实例不应为空")
@@ -150,6 +154,11 @@ func TestMinIOStorage_ListFiles(t *testing.T) {
 	err := storage.CreateBucket(ctx, testBucket)
 	require.NoError(t, err)
 	defer func() {
+		// 删除所有文件再删除存储桶
+		files, _ := storage.ListFiles(ctx, testBucket, "")
+		for _, file := range files {
+			_ = storage.DeleteFile(ctx, testBucket, file.Key)
+		}
 		_ = storage.RemoveBucket(ctx, testBucket)
 	}()
 
@@ -166,6 +175,11 @@ func TestMinIOStorage_ListFiles(t *testing.T) {
 	for _, file := range testFiles {
 		_, err := storage.UploadFile(ctx, testBucket, file.name, file.data, "video/mp4")
 		require.NoError(t, err)
+		
+		// 验证文件确实上传成功
+		exists, err := storage.FileExists(ctx, testBucket, file.name)
+		require.NoError(t, err)
+		require.True(t, exists, "文件应该存在: "+file.name)
 	}
 
 	// 测试列出所有文件
@@ -204,19 +218,17 @@ func TestMinIOStorage_FileExists_NotFound(t *testing.T) {
 
 // isMinIOAvailable 检查MinIO服务是否可用
 func isMinIOAvailable() bool {
-	// 检查环境变量或其他方式来确定是否应该运行需要MinIO的测试
-	if os.Getenv("SKIP_MINIO_TESTS") == "true" {
-		return false
+	// 尝试创建一个存储实例并测试连接
+	testConfig := testconfig.GetMinIOTestConfig()
+	config := &MinIOConfig{
+		Endpoint:  testConfig.GetEndpoint(),
+		AccessKey: testConfig.AccessKey,
+		SecretKey: testConfig.SecretKey,
+		UseSSL:    testConfig.UseSSL,
+		Region:    testConfig.Region,
 	}
 
-	// 尝试创建一个存储实例并测试连接
-	storage, err := NewMinIOStorage(&MinIOConfig{
-		Endpoint:  "localhost:9000",
-		AccessKey: "admin",
-		SecretKey: "admin123456",
-		UseSSL:    false,
-		Region:    "us-east-1",
-	})
+	storage, err := NewMinIOStorage(config)
 	if err != nil {
 		return false
 	}
@@ -228,12 +240,13 @@ func isMinIOAvailable() bool {
 
 // setupTestStorage 设置测试存储实例
 func setupTestStorage(t *testing.T) *MinIOStorage {
+	testConfig := testconfig.GetMinIOTestConfig()
 	config := &MinIOConfig{
-		Endpoint:  "localhost:9000",
-		AccessKey: "admin",
-		SecretKey: "admin123456",
-		UseSSL:    false,
-		Region:    "us-east-1",
+		Endpoint:  testConfig.GetEndpoint(),
+		AccessKey: testConfig.AccessKey,
+		SecretKey: testConfig.SecretKey,
+		UseSSL:    testConfig.UseSSL,
+		Region:    testConfig.Region,
 	}
 
 	storage, err := NewMinIOStorage(config)
