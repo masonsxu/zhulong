@@ -6,12 +6,15 @@ import type { Video, VideoListResponse, VideoFilter, Pagination } from '../../ty
 interface VideoListProps {
   searchQuery?: string
   onVideoSelect?: (video: Video) => void
+  onVideoDeleted?: (videoId: string) => void
 }
 
-export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps) {
+export default function VideoList({ searchQuery, onVideoSelect, onVideoDeleted }: VideoListProps) {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 12,
@@ -77,6 +80,37 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
     setPagination(prev => ({ ...prev, page }))
   }, [])
 
+  const handleDeleteVideo = useCallback(async (videoId: string, videoTitle: string) => {
+    if (!window.confirm(`确定要删除视频"${videoTitle}"吗？此操作不可撤销。`)) {
+      return
+    }
+
+    setDeletingVideoId(videoId)
+    
+    try {
+      await VideoService.deleteVideo(videoId)
+      
+      // 从列表中移除删除的视频
+      setVideos(prev => prev.filter(video => video.id !== videoId))
+      
+      // 更新分页信息
+      setPagination(prev => ({ ...prev, total: prev.total - 1 }))
+      
+      // 通知父组件
+      onVideoDeleted?.(videoId)
+      
+      // 如果当前页没有视频了且不是第一页，则跳转到上一页
+      if (videos.length === 1 && pagination.page > 1) {
+        setPagination(prev => ({ ...prev, page: prev.page - 1 }))
+      }
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除视频失败')
+    } finally {
+      setDeletingVideoId(null)
+    }
+  }, [videos.length, pagination.page, onVideoDeleted])
+
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
@@ -136,6 +170,31 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
           共 {pagination.total} 个视频
         </div>
         <div className="flex items-center space-x-4">
+          {/* 视图切换 */}
+          <div className="flex border border-gray-300 rounded">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1 text-sm ${
+                viewMode === 'grid' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              网格
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1 text-sm ${
+                viewMode === 'list' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              列表
+            </button>
+          </div>
+          
+          {/* 排序选择 */}
           <select
             value={filter.sortBy}
             onChange={(e) => handleSortChange(e.target.value)}
@@ -153,12 +212,12 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
             }))}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
-            {filter.sortOrder === 'desc' ? '降序' : '升序'}
+            {filter.sortOrder === 'desc' ? '↓' : '↑'}
           </button>
         </div>
       </div>
 
-      {/* 视频网格 */}
+      {/* 视频显示区域 */}
       {videos.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-500 mb-4">📺 暂无视频</div>
@@ -169,7 +228,7 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
             上传第一个视频
           </Link>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {videos.map((video) => (
             <div
@@ -177,7 +236,7 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => onVideoSelect?.(video)}
             >
-              {/* 缩略图 */}
+              {/* 网格视图的卡片内容 */}
               <div className="aspect-video bg-gray-200 relative">
                 {video.thumbnail_url ? (
                   <img
@@ -195,7 +254,6 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
                 </div>
               </div>
 
-              {/* 视频信息 */}
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
                   {video.title}
@@ -210,7 +268,6 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
                   <div>{formatDate(video.created_at)}</div>
                 </div>
 
-                {/* 操作按钮 */}
                 <div className="mt-3 flex space-x-2">
                   <Link
                     to={`/video/${video.id}`}
@@ -222,13 +279,94 @@ export default function VideoList({ searchQuery, onVideoSelect }: VideoListProps
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      // TODO: 实现删除功能
-                      console.log('Delete video:', video.id)
+                      handleDeleteVideo(video.id, video.title)
                     }}
-                    className="px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm"
+                    disabled={deletingVideoId === video.id}
+                    className="px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    删除
+                    {deletingVideoId === video.id ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-1"></div>
+                        删除中
+                      </div>
+                    ) : (
+                      '删除'
+                    )}
                   </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {videos.map((video) => (
+            <div
+              key={video.id}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => onVideoSelect?.(video)}
+            >
+              {/* 列表视图的行内容 */}
+              <div className="flex">
+                <div className="w-48 h-28 bg-gray-200 relative flex-shrink-0">
+                  {video.thumbnail_url ? (
+                    <img
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl text-gray-400">
+                      🎬
+                    </div>
+                  )}
+                  <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 py-0.5 rounded">
+                    {formatDuration(video.duration)}
+                  </div>
+                </div>
+                
+                <div className="flex-1 p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 mr-4">
+                      <h3 className="font-medium text-gray-900 mb-2">{video.title}</h3>
+                      {video.description && (
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                          {video.description}
+                        </p>
+                      )}
+                      <div className="text-xs text-gray-500 space-x-4">
+                        <span>{formatFileSize(video.file_size)}</span>
+                        <span>{formatDate(video.created_at)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-2 flex-shrink-0">
+                      <Link
+                        to={`/video/${video.id}`}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        播放
+                      </Link>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteVideo(video.id, video.title)
+                        }}
+                        disabled={deletingVideoId === video.id}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deletingVideoId === video.id ? (
+                          <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-1"></div>
+                            删除中
+                          </div>
+                        ) : (
+                          '删除'
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
