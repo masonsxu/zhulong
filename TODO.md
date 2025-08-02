@@ -65,14 +65,14 @@
 
 ### React 应用初始化
 
-- [ ] **FRONTEND-001**: 初始化 React 项目结构
-- [ ] **FRONTEND-002**: 配置构建工具 (Vite 或 Webpack)
-- [ ] **FRONTEND-003**: 设置 ESLint 和 Prettier 代码规范
+- [x] **FRONTEND-001**: 初始化 React 项目结构
+- [x] **FRONTEND-002**: 配置构建工具 (Vite 或 Webpack)
+- [x] **FRONTEND-003**: 设置 ESLint 和 Prettier 代码规范
 
 ### 核心组件开发
 
-- [ ] **COMPONENT-001**: 开发 VideoUpload 上传组件
-- [ ] **COMPONENT-002**: 开发 VideoPlayer 播放器组件
+- [x] **COMPONENT-001**: 开发 VideoUpload 上传组件
+- [x] **COMPONENT-002**: 开发 VideoPlayer 播放器组件
 - [ ] **COMPONENT-003**: 开发 VideoList 视频列表组件
 
 ## 完成标准

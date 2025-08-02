@@ -7,11 +7,12 @@ import type { Video } from '../types'
 export default function VideoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [video, setVideo] = useState<Video | null>(null)
+  const [playUrl, setPlayUrl] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchVideo = async () => {
+    const fetchVideoData = async () => {
       if (!id) {
         setError('视频ID无效')
         setLoading(false)
@@ -20,8 +21,15 @@ export default function VideoDetailPage() {
 
       try {
         setLoading(true)
-        const videoData = await VideoService.getVideoById(id)
+        
+        // 并行获取视频信息和播放URL
+        const [videoData, playUrlData] = await Promise.all([
+          VideoService.getVideoById(id),
+          VideoService.getVideoPlayUrl(id)
+        ])
+        
         setVideo(videoData)
+        setPlayUrl(playUrlData.play_url)
       } catch (err) {
         setError(err instanceof Error ? err.message : '获取视频信息失败')
       } finally {
@@ -29,7 +37,7 @@ export default function VideoDetailPage() {
       }
     }
 
-    fetchVideo()
+    fetchVideoData()
   }, [id])
 
   const handleVideoError = (errorMessage: string) => {
@@ -100,6 +108,16 @@ export default function VideoDetailPage() {
     )
   }
 
+  // 等待播放URL加载完成
+  if (!playUrl) {
+    return (
+      <div className="flex justify-center items-center min-h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="ml-3 text-gray-600">正在获取播放地址...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* 导航 */}
@@ -115,7 +133,7 @@ export default function VideoDetailPage() {
         {/* 视频播放器 */}
         <div className="lg:col-span-2">
           <VideoPlayer
-            video={video}
+            video={{...video, play_url: playUrl}}
             autoPlay={false}
             onError={handleVideoError}
             onEnded={handleVideoEnded}
@@ -176,8 +194,8 @@ export default function VideoDetailPage() {
               </button>
               <button
                 onClick={() => {
-                  // TODO: 实现下载功能
-                  window.open(video.play_url, '_blank')
+                  // 使用获取到的预签名URL下载视频
+                  window.open(playUrl, '_blank')
                 }}
                 className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
               >

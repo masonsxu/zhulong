@@ -28,6 +28,8 @@ export default function VideoPlayer({
   })
   const [showControls, setShowControls] = useState(true)
   const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null)
+  const [playbackRate, setPlaybackRate] = useState(1)
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false)
 
   // 播放/暂停
   const togglePlay = useCallback(async () => {
@@ -67,6 +69,15 @@ export default function VideoPlayer({
     
     videoRef.current.currentTime = time
     setPlayerState(prev => ({ ...prev, currentTime: time }))
+  }, [])
+
+  // 设置播放速度
+  const setPlaybackSpeed = useCallback((rate: number) => {
+    if (!videoRef.current) return
+    
+    videoRef.current.playbackRate = rate
+    setPlaybackRate(rate)
+    setShowSpeedMenu(false)
   }, [])
 
   // 全屏/退出全屏
@@ -272,14 +283,19 @@ export default function VideoPlayer({
       >
         {/* 进度条 */}
         <div className="mb-4">
-          <input
-            type="range"
-            min={0}
-            max={playerState.duration || 0}
-            value={playerState.currentTime}
-            onChange={(e) => seekTo(Number(e.target.value))}
-            className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-          />
+          <div className="relative">
+            <input
+              type="range"
+              min={0}
+              max={playerState.duration || 0}
+              value={playerState.currentTime}
+              onChange={(e) => seekTo(Number(e.target.value))}
+              className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+              style={{
+                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(playerState.currentTime / (playerState.duration || 1)) * 100}%, #4b5563 ${(playerState.currentTime / (playerState.duration || 1)) * 100}%, #4b5563 100%)`
+              }}
+            />
+          </div>
         </div>
 
         {/* 控制按钮 */}
@@ -329,6 +345,31 @@ export default function VideoPlayer({
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* 播放速度控制 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                className="hover:text-gray-300 text-sm"
+              >
+                {playbackRate}x
+              </button>
+              {showSpeedMenu && (
+                <div className="absolute bottom-8 left-0 bg-black bg-opacity-90 rounded-md p-2 min-w-16">
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
+                    <button
+                      key={rate}
+                      onClick={() => setPlaybackSpeed(rate)}
+                      className={`block w-full text-left px-2 py-1 text-sm hover:bg-gray-700 rounded ${
+                        playbackRate === rate ? 'text-blue-400' : ''
+                      }`}
+                    >
+                      {rate}x
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             {/* 全屏按钮 */}
             <button onClick={toggleFullscreen} className="hover:text-gray-300">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
