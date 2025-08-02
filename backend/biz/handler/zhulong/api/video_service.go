@@ -118,12 +118,17 @@ func GetVideoList(ctx context.Context, c *app.RequestContext) {
 func GetVideoDetail(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req api.VideoDetailRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
+	
+	// 从路径参数获取video_id
+	videoID := c.Param("video_id")
+	req.VideoID = videoID
+	
+	// 不需要BindAndValidate，因为只有路径参数
+	if videoID == "" {
 		c.JSON(consts.StatusBadRequest, &api.VideoDetailResponse{
 			Base: &api.BaseResponse{
 				Code:    2000,
-				Message: "请求参数错误: " + err.Error(),
+				Message: "路径参数video_id不能为空",
 			},
 			Video: nil,
 		})
