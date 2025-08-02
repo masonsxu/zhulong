@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -163,17 +164,69 @@ func GetVideoDetail(ctx context.Context, c *app.RequestContext) {
 // GetVideoPlayURL .
 // @router /api/v1/videos/:video_id/play [GET]
 func GetVideoPlayURL(ctx context.Context, c *app.RequestContext) {
-	var err error
 	var req api.VideoPlayURLRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	
+	// 从路径参数获取video_id
+	videoID := c.Param("video_id")
+	req.VideoID = videoID
+	
+	// 从查询参数获取expire_seconds（可选）
+	expireSecondsStr := c.DefaultQuery("expire_seconds", "3600") // 默认3600秒
+	if expireSecondsStr != "" {
+		if expireSeconds, err := strconv.ParseInt(expireSecondsStr, 10, 32); err == nil {
+			req.ExpireSeconds = int32(expireSeconds)
+		} else {
+			c.JSON(consts.StatusBadRequest, &api.VideoPlayURLResponse{
+				Base: &api.BaseResponse{
+					Code:    4000,
+					Message: "expire_seconds参数格式错误: " + err.Error(),
+				},
+				PlayURL:   "",
+				ExpiresAt: 0,
+			})
+			return
+		}
+	} else {
+		req.ExpireSeconds = 3600 // 默认1小时
+	}
+
+	// 基本参数验证
+	if videoID == "" {
+		c.JSON(consts.StatusBadRequest, &api.VideoPlayURLResponse{
+			Base: &api.BaseResponse{
+				Code:    4000,
+				Message: "路径参数video_id不能为空",
+			},
+			PlayURL:   "",
+			ExpiresAt: 0,
+		})
 		return
 	}
 
-	resp := new(api.VideoPlayURLResponse)
+	// 调用服务层处理
+	resp, err := videoService.GetVideoPlayURL(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusInternalServerError, &api.VideoPlayURLResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "服务器内部错误: " + err.Error(),
+			},
+			PlayURL:   "",
+			ExpiresAt: 0,
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 根据业务逻辑返回相应的HTTP状态码
+	if resp.Base.Code == 0 {
+		c.JSON(consts.StatusOK, resp)
+	} else if resp.Base.Code == 4001 {
+		// 视频不存在，返回404
+		c.JSON(consts.StatusNotFound, resp)
+	} else {
+		// 其他业务错误，返回400
+		c.JSON(consts.StatusBadRequest, resp)
+	}
 }
 
 // DeleteVideo .

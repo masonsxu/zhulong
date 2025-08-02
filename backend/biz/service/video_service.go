@@ -457,3 +457,83 @@ func (s *VideoService) videoDetailErrorResponse(code int32, message string) *api
 		Video: nil,
 	}
 }
+
+// GetVideoPlayURL 获取视频播放URL
+func (s *VideoService) GetVideoPlayURL(ctx context.Context, req *api.VideoPlayURLRequest) (*api.VideoPlayURLResponse, error) {
+	// 参数验证
+	if err := s.validateVideoPlayURLRequest(req); err != nil {
+		return s.videoPlayURLErrorResponse(4000, err.Error()), nil
+	}
+
+	// 查询视频元数据确认视频存在
+	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
+	if err != nil {
+		return s.videoPlayURLErrorResponse(4001, "视频不存在"), nil
+	}
+
+	// 设置过期时间
+	expireSeconds := req.ExpireSeconds
+	if expireSeconds == 0 {
+		expireSeconds = 3600 // 默认1小时
+	}
+
+	// 生成预签名URL
+	expiry := time.Duration(expireSeconds) * time.Second
+	playURL, err := s.storageClient.GetPresignedURL(ctx, metadata.BucketName, metadata.ObjectName, expiry)
+	if err != nil {
+		return s.videoPlayURLErrorResponse(5000, fmt.Sprintf("生成播放URL失败: %v", err)), nil
+	}
+
+	// 计算过期时间戳
+	expiresAt := time.Now().Add(expiry).UnixMilli()
+
+	return &api.VideoPlayURLResponse{
+		Base: &api.BaseResponse{
+			Code:    0,
+			Message: "获取成功",
+		},
+		PlayURL:   playURL,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+// validateVideoPlayURLRequest 验证获取播放URL请求
+func (s *VideoService) validateVideoPlayURLRequest(req *api.VideoPlayURLRequest) error {
+	if req.VideoID == "" {
+		return fmt.Errorf("视频ID不能为空")
+	}
+
+	// 验证视频ID格式（去除空格）
+	videoID := strings.TrimSpace(req.VideoID)
+	if videoID == "" {
+		return fmt.Errorf("视频ID不能为空或只包含空格")
+	}
+
+	// 更新请求中的videoID（去除空格）
+	req.VideoID = videoID
+
+	// 验证过期时间
+	if req.ExpireSeconds < 0 {
+		return fmt.Errorf("过期时间不能为负数")
+	}
+
+	// 最大过期时间限制为7天
+	maxExpireSeconds := int32(7 * 24 * 3600) // 7天
+	if req.ExpireSeconds > maxExpireSeconds {
+		return fmt.Errorf("过期时间不能超过7天")
+	}
+
+	return nil
+}
+
+// videoPlayURLErrorResponse 创建播放URL错误响应
+func (s *VideoService) videoPlayURLErrorResponse(code int32, message string) *api.VideoPlayURLResponse {
+	return &api.VideoPlayURLResponse{
+		Base: &api.BaseResponse{
+			Code:    code,
+			Message: message,
+		},
+		PlayURL:   "",
+		ExpiresAt: 0,
+	}
+}
