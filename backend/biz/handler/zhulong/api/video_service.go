@@ -232,15 +232,43 @@ func GetVideoPlayURL(ctx context.Context, c *app.RequestContext) {
 // DeleteVideo .
 // @router /api/v1/videos/:video_id [DELETE]
 func DeleteVideo(ctx context.Context, c *app.RequestContext) {
-	var err error
 	var req api.VideoDeleteRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	
+	// 从路径参数获取video_id
+	videoID := c.Param("video_id")
+	req.VideoID = videoID
+	
+	// 基本参数验证
+	if videoID == "" {
+		c.JSON(consts.StatusBadRequest, &api.VideoDeleteResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "路径参数video_id不能为空",
+			},
+		})
 		return
 	}
 
-	resp := new(api.VideoDeleteResponse)
+	// 调用服务层处理
+	resp, err := videoService.DeleteVideo(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusInternalServerError, &api.VideoDeleteResponse{
+			Base: &api.BaseResponse{
+				Code:    5000,
+				Message: "服务器内部错误: " + err.Error(),
+			},
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// 根据业务逻辑返回相应的HTTP状态码
+	if resp.Base.Code == 0 {
+		c.JSON(consts.StatusOK, resp)
+	} else if resp.Base.Code == 5001 {
+		// 视频不存在，返回404
+		c.JSON(consts.StatusNotFound, resp)
+	} else {
+		// 其他业务错误，返回400
+		c.JSON(consts.StatusBadRequest, resp)
+	}
 }
