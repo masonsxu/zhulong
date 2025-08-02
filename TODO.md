@@ -51,7 +51,7 @@
 - [x] **API-001**: POST /api/v1/videos - 视频上传接口
 - [x] **API-002**: GET /api/v1/videos - 获取视频列表接口
 - [x] **API-003**: GET /api/v1/videos/:id - 获取单个视频信息
-- [ ] **API-004**: GET /api/v1/videos/:id/play - 获取视频播放 URL
+- [x] **API-004**: GET /api/v1/videos/:id/play - 获取视频播放 URL
 - [ ] **API-005**: DELETE /api/v1/videos/:id - 删除视频接口
 
 ### API 安全和验证
