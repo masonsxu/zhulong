@@ -20,14 +20,14 @@ import (
 
 // VideoService 视频服务
 type VideoService struct {
-	config            *config.Config
-	storageClient     storage.StorageInterface
-	uploadService     *upload.UploadService
-	metadataService   *metadata.MetadataService
-	videoValidator    *video.VideoValidator
-	videoExtractor    *video.VideoInfoExtractor
+	config             *config.Config
+	storageClient      storage.StorageInterface
+	uploadService      *upload.UploadService
+	metadataService    *metadata.MetadataService
+	videoValidator     *video.VideoValidator
+	videoExtractor     *video.VideoInfoExtractor
 	thumbnailGenerator *video.ThumbnailGenerator
-	sizeLimitManager  *video.SizeLimitManager
+	sizeLimitManager   *video.SizeLimitManager
 }
 
 // NewVideoService 创建视频服务
@@ -38,7 +38,7 @@ func NewVideoService() (*VideoService, error) {
 		return nil, fmt.Errorf("加载配置失败: %v", err)
 	}
 
-	// 初始化存储客户端 
+	// 初始化存储客户端
 	storageClient, err := storage.NewMinIOStorage(&storage.MinIOConfig{
 		Endpoint:  cfg.MinIO.Endpoint,
 		AccessKey: cfg.MinIO.AccessKey,
@@ -48,6 +48,8 @@ func NewVideoService() (*VideoService, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化存储客户端失败: %v", err)
+	} else {
+		fmt.Errorf("初始化存储客户端成功。")
 	}
 
 	// 初始化各种服务
@@ -59,14 +61,14 @@ func NewVideoService() (*VideoService, error) {
 	sizeLimitManager := video.NewSizeLimitManager()
 
 	return &VideoService{
-		config:            cfg,
-		storageClient:     storageClient,
-		uploadService:     uploadService,
-		metadataService:   metadataService,
-		videoValidator:    videoValidator,
-		videoExtractor:    videoExtractor,
+		config:             cfg,
+		storageClient:      storageClient,
+		uploadService:      uploadService,
+		metadataService:    metadataService,
+		videoValidator:     videoValidator,
+		videoExtractor:     videoExtractor,
 		thumbnailGenerator: thumbnailGenerator,
-		sizeLimitManager:  sizeLimitManager,
+		sizeLimitManager:   sizeLimitManager,
 	}, nil
 }
 

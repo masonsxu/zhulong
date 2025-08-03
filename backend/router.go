@@ -5,14 +5,10 @@ package main
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	handler "github.com/manteia/zhulong/biz/handler"
-	"github.com/manteia/zhulong/pkg/middleware"
 )
 
 // customizeRegister registers customize routers.
 func customizedRegister(r *server.Hertz) {
-	// 添加CORS中间件 - 允许局域网访问
-	r.Use(middleware.CORS(middleware.LocalNetworkCORSConfig()))
-
 	r.GET("/ping", handler.Ping)
 
 	// your code ...

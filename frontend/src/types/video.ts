@@ -38,9 +38,12 @@ export interface VideoUploadRequest {
 }
 
 export interface VideoUploadResponse {
+  base: {
+    code: number
+    message: string
+  }
   video_id: string
-  upload_url: string
-  message: string
+  upload_url?: string
 }
 
 export interface VideoUploadProgress {

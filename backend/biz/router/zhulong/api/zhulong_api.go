@@ -17,6 +17,10 @@ import (
 func Register(r *server.Hertz) {
 
 	root := r.Group("/", rootMw()...)
+	
+	// 添加通配符OPTIONS处理，解决预检请求问题
+	root.OPTIONS("/*path", OptionsHandler)
+	
 	root.GET("/health", append(_healthcheckMw(), api.HealthCheck)...)
 	{
 		_api := root.Group("/api", _apiMw()...)
