@@ -1,4 +1,5 @@
-import { apiRequest, uploadFile } from './api'
+import { apiRequest, apiClient } from './api'
+import axios from 'axios'
 import type {
   Video,
   VideoListRequest,
@@ -60,37 +61,51 @@ export class VideoService {
     request: VideoUploadRequest,
     onProgress?: (progress: VideoUploadProgress) => void
   ): Promise<VideoUploadResponse> {
-    // 首先创建视频记录并获取上传URL
-    const uploadInfo = await apiRequest<VideoUploadResponse>(
-      this.BASE_PATH,
-      'POST',
-      {
-        title: request.title,
-        description: request.description,
-        filename: request.file.name,
-        file_size: request.file.size,
-        mime_type: request.file.type,
-      }
-    )
+    // 创建FormData对象
+    const formData = new FormData()
+    formData.append('file', request.file)
+    formData.append('title', request.title)
+    formData.append('description', request.description || '')
 
-    // 使用预签名URL上传文件
-    if (uploadInfo.upload_url) {
-      await uploadFile(
-        uploadInfo.upload_url,
-        request.file,
-        (progress) => {
-          if (onProgress) {
-            onProgress({
-              loaded: (request.file.size * progress) / 100,
-              total: request.file.size,
-              percentage: progress,
-            })
-          }
+    try {
+      // 使用FormData直接上传到后端API
+      const response = await apiClient.post<VideoUploadResponse>(
+        this.BASE_PATH,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total && onProgress) {
+              const loaded = progressEvent.loaded
+              const total = progressEvent.total
+              const percentage = Math.round((loaded * 100) / total)
+              
+              onProgress({
+                loaded,
+                total,
+                percentage,
+              })
+            }
+          },
         }
       )
-    }
 
-    return uploadInfo
+      // 检查响应格式
+      if (response.data.base?.code === 0) {
+        return response.data
+      } else {
+        throw new Error(response.data.base?.message || '上传失败')
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      if (axios.isAxiosError(error)) {
+        const apiError = error.response?.data
+        throw new Error(apiError?.base?.message || apiError?.message || '上传失败')
+      }
+      throw error
+    }
   }
 
   /**

@@ -79,18 +79,26 @@ func UploadVideo(ctx context.Context, c *app.RequestContext) {
 func GetVideoList(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req api.VideoListRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.JSON(consts.StatusBadRequest, &api.VideoListResponse{
-			Base: &api.BaseResponse{
-				Code:    2000,
-				Message: "请求参数错误: " + err.Error(),
-			},
-			Videos: []*api.Video{},
-			Total:  0,
-		})
-		return
+	
+	// 手动绑定查询参数，避免处理表单数据
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil {
+			req.Page = int32(page)
+		}
 	}
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			req.PageSize = int32(limit)
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
+			req.PageSize = int32(pageSize)
+		}
+	}
+	req.Search = c.Query("search")
+	req.SortBy = c.Query("sort_by")
+	req.SortOrder = c.Query("sort_order")
 
 	// 调用服务层处理
 	resp, err := videoService.GetVideoList(ctx, &req)

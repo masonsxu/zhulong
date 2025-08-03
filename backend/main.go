@@ -3,10 +3,41 @@
 package main
 
 import (
+	"log"
+	"os"
+	"strings"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/joho/godotenv"
+	_ "github.com/manteia/zhulong/biz/handler/zhulong/api"
 )
 
 func main() {
+	// 加载.env文件
+	if err := godotenv.Load("../.env"); err != nil {
+		log.Printf("Warning: 无法加载.env文件: %v", err)
+		// 不退出程序，因为环境变量可能通过其他方式设置
+	}
+
+	// 调试：打印所有相关的环境变量
+	log.Println("==================== 环境变量配置 ====================")
+	envs := []string{
+		"ZHULONG_MINIO_ENDPOINT", "ZHULONG_MINIO_ACCESS_KEY", "ZHULONG_MINIO_SECRET_KEY", "ZHULONG_MINIO_BUCKET",
+		"JWT_SECRET", "JWT_EXPIRE", "PORT", "NODE_ENV", "UPLOAD_MAX_SIZE", "UPLOAD_ALLOWED_TYPES",
+	}
+	for _, env := range envs {
+		value := os.Getenv(env)
+		if strings.Contains(strings.ToUpper(env), "KEY") || strings.Contains(strings.ToUpper(env), "SECRET") {
+			if len(value) > 6 {
+				value = value[:3] + "****" + value[len(value)-3:]
+			} else {
+				value = "****"
+			}
+		}
+		log.Printf("%s: %s", env, value)
+	}
+	log.Println("====================================================")
+
 	h := server.Default()
 
 	register(h)
