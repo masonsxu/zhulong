@@ -13,7 +13,7 @@ export default function VideoDetailPage() {
 
   useEffect(() => {
     const fetchVideoData = async () => {
-      if (!id) {
+      if (!id || id === 'undefined') {
         setError('视频ID无效')
         setLoading(false)
         return
@@ -22,14 +22,14 @@ export default function VideoDetailPage() {
       try {
         setLoading(true)
         
-        // 并行获取视频信息和播放URL
-        const [videoData, playUrlData] = await Promise.all([
-          VideoService.getVideoById(id),
-          VideoService.getVideoPlayUrl(id)
-        ])
-        
+        const videoData = await VideoService.getVideoById(id)
         setVideo(videoData)
-        setPlayUrl(playUrlData.play_url)
+
+        if (videoData) {
+          const playUrlData = await VideoService.getVideoPlayUrl(id)
+          setPlayUrl(playUrlData.play_url)
+        }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : '获取视频信息失败')
       } finally {

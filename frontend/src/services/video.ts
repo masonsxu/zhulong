@@ -7,7 +7,30 @@ import type {
   VideoUploadRequest,
   VideoUploadResponse,
   VideoUploadProgress,
+  BackendVideo,
+  BackendVideoListResponse,
 } from '../types'
+
+// 将后端视频数据转换为前端格式
+function transformVideoData(backendVideo: BackendVideo): Video {
+  const minioBaseUrl = import.meta.env.VITE_MINIO_BASE_URL || 'http://localhost:9000';
+  const bucketName = import.meta.env.VITE_MINIO_BUCKET_NAME || 'zhulong-videos';
+
+  return {
+    id: backendVideo.id,
+    title: backendVideo.title,
+    description: backendVideo.description,
+    filename: backendVideo.filename,
+    file_size: backendVideo.size,
+    duration: backendVideo.duration,
+    mime_type: backendVideo.content_type,
+    thumbnail_url: backendVideo.thumbnail_path
+      ? `${minioBaseUrl}/${bucketName}/${backendVideo.thumbnail_path}`
+      : 'https://via.placeholder.com/1280x720.png?text=No+Thumbnail',
+    created_at: new Date(backendVideo.uploaded_at).toISOString(),
+    updated_at: new Date(backendVideo.updated_at).toISOString(),
+  };
+}
 
 // 视频API服务类
 export class VideoService {
@@ -30,7 +53,20 @@ export class VideoService {
     const queryString = queryParams.toString()
     const url = queryString ? `${this.BASE_PATH}?${queryString}` : this.BASE_PATH
 
-    return apiRequest<VideoListResponse>(url, 'GET')
+    const backendResponse = await apiRequest<BackendVideoListResponse>(url, 'GET')
+
+    if (backendResponse.base.code !== 0) {
+      throw new Error(backendResponse.base.message || 'Failed to fetch video list');
+    }
+
+    return {
+      videos: backendResponse.videos.map(transformVideoData),
+      total: backendResponse.total,
+      page: backendResponse.page,
+      limit: backendResponse.page_size,
+      has_next: backendResponse.page < backendResponse.total_pages,
+      has_prev: backendResponse.page > 1,
+    };
   }
 
   /**

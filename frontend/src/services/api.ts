@@ -77,10 +77,10 @@ export const apiRequest = async <T = any>(
       ...config,
     })
 
-    if (response.data.code === 0) {
-      return response.data.data as T
+    if (response.data.base.code === 0) {
+      return response.data as T
     } else {
-      throw new Error(response.data.message || 'API request failed')
+      throw new Error(response.data.base.message || 'API request failed')
     }
   } catch (error) {
     if (axios.isAxiosError(error)) {

@@ -1,5 +1,37 @@
 // 视频相关类型定义
 
+// 从后端API接收的原始视频对象
+export interface BackendVideo {
+  id: string;
+  title: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  duration: number;
+  width: number;
+  height: number;
+  storage_path: string;
+  thumbnail_path: string;
+  uploaded_at: number;
+  updated_at: number;
+  description?: string;
+}
+
+// 从后端API接收的原始视频列表响应
+export interface BackendVideoListResponse {
+  base: {
+    code: number;
+    message: string;
+  };
+  videos: BackendVideo[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+
+// 前端组件使用的经过转换的视频对象
 export interface Video {
   id: string
   title: string
@@ -9,7 +41,7 @@ export interface Video {
   duration: number
   mime_type: string
   thumbnail_url?: string
-  play_url: string
+  play_url?: string
   created_at: string
   updated_at: string
 }
