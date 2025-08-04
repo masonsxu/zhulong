@@ -16,6 +16,8 @@ import (
 	"github.com/manteia/zhulong/pkg/storage"
 	"github.com/manteia/zhulong/pkg/upload"
 	"github.com/manteia/zhulong/pkg/video"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // VideoService 视频服务
@@ -38,6 +40,20 @@ func NewVideoService() (*VideoService, error) {
 		return nil, fmt.Errorf("加载配置失败: %v", err)
 	}
 
+	// 初始化数据库连接
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Shanghai",
+		cfg.Postgres.Host,
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.DBName,
+		cfg.Postgres.Port,
+		cfg.Postgres.SSLMode,
+	)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("连接数据库失败: %v", err)
+	}
+
 	// 初始化存储客户端
 	storageClient, err := storage.NewMinIOStorage(&storage.MinIOConfig{
 		Endpoint:  cfg.MinIO.Endpoint,
@@ -52,7 +68,10 @@ func NewVideoService() (*VideoService, error) {
 
 	// 初始化各种服务
 	uploadService := upload.NewUploadService(storageClient)
-	metadataService := metadata.NewMetadataService()
+	metadataService, err := metadata.NewMetadataService(db)
+	if err != nil {
+		return nil, fmt.Errorf("初始化元数据服务失败: %v", err)
+	}
 	videoValidator := video.NewVideoValidator()
 	videoExtractor := video.NewVideoInfoExtractor()
 	thumbnailGenerator := video.NewThumbnailGenerator()
@@ -61,7 +80,7 @@ func NewVideoService() (*VideoService, error) {
 	return &VideoService{
 		config:             cfg,
 		storageClient:      storageClient,
-		uploadService:      uploadService,
+	uploadService:      uploadService,
 		metadataService:    metadataService,
 		videoValidator:     videoValidator,
 		videoExtractor:     videoExtractor,
@@ -328,7 +347,8 @@ func (s *VideoService) GetVideoList(ctx context.Context, req *api.VideoListReque
 			fmt.Sscanf(metadata.Resolution, "%dx%d", &video.Width, &video.Height)
 		}
 
-		videos = append(videos, video)
+	
+videos = append(videos, video)
 	}
 
 	return &api.VideoListResponse{
@@ -336,8 +356,11 @@ func (s *VideoService) GetVideoList(ctx context.Context, req *api.VideoListReque
 			Code:    0,
 			Message: "获取成功",
 		},
-		Videos: videos,
-		Total:  int32(listResponse.Total),
+		Videos:     videos,
+		Total:      int32(listResponse.Total),
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: (int32(listResponse.Total) + pageSize - 1) / pageSize, // 计算总页数
 	}, nil
 }
 

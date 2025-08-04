@@ -3,17 +3,16 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/manteia/zhulong/biz/model/db"
+	"gorm.io/gorm"
 )
 
 // MetadataService 文件元数据管理服务
 type MetadataService struct {
-	// 使用内存存储作为简单实现，实际项目中应该使用数据库
-	storage map[string]*FileMetadata
-	mutex   sync.RWMutex
+	db *gorm.DB
 }
 
 // FileMetadata 文件元数据结构
@@ -78,11 +77,16 @@ type ListMetadataResponse struct {
 }
 
 // NewMetadataService 创建元数据服务
-func NewMetadataService() *MetadataService {
-	return &MetadataService{
-		storage: make(map[string]*FileMetadata),
-		mutex:   sync.RWMutex{},
+func NewMetadataService(database *gorm.DB) (*MetadataService, error) {
+	// 自动迁移数据库表
+	err := database.AutoMigrate(&db.VideoMetadata{})
+	if err != nil {
+		return nil, fmt.Errorf("数据库迁移失败: %w", err)
 	}
+
+	return &MetadataService{
+		db: database,
+	}, nil
 }
 
 // SaveMetadata 保存文件元数据
@@ -92,231 +96,87 @@ func (s *MetadataService) SaveMetadata(ctx context.Context, metadata *FileMetada
 		return err
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	dbMetadata := toDBMetadata(metadata)
 
 	// 设置时间戳
 	now := time.Now()
-	if metadata.CreatedAt.IsZero() {
-		metadata.CreatedAt = now
+	if dbMetadata.CreatedAt.IsZero() {
+		dbMetadata.CreatedAt = now
 	}
-	metadata.UpdatedAt = now
+	dbMetadata.UpdatedAt = now
 
-	// 去重标签
-	metadata.Tags = s.deduplicateTags(metadata.Tags)
-
-	// 保存到存储
-	s.storage[metadata.FileID] = metadata
+	// 保存到数据库
+	result := s.db.WithContext(ctx).Create(dbMetadata)
+	if result.Error != nil {
+		return fmt.Errorf("保存元数据失败: %w", result.Error)
+	}
 
 	return nil
 }
 
 // GetMetadata 获取文件元数据
 func (s *MetadataService) GetMetadata(ctx context.Context, fileID string) (*FileMetadata, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	metadata, exists := s.storage[fileID]
-	if !exists {
-		return nil, fmt.Errorf("元数据不存在: %s", fileID)
+	var dbMetadata db.VideoMetadata
+	result := s.db.WithContext(ctx).Where("file_id = ?", fileID).First(&dbMetadata)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("元数据不存在: %s", fileID)
+		}
+		return nil, fmt.Errorf("查询元数据失败: %w", result.Error)
 	}
 
-	// 返回副本以避免并发修改
-	return s.copyMetadata(metadata), nil
-}
-
-// UpdateMetadata 更新文件元数据
-func (s *MetadataService) UpdateMetadata(ctx context.Context, req *UpdateMetadataRequest) error {
-	if req.FileID == "" {
-		return fmt.Errorf("文件ID不能为空")
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	metadata, exists := s.storage[req.FileID]
-	if !exists {
-		return fmt.Errorf("元数据不存在: %s", req.FileID)
-	}
-
-	// 更新字段
-	if req.Title != nil {
-		metadata.Title = *req.Title
-	}
-	if req.Description != nil {
-		metadata.Description = *req.Description
-	}
-	if req.Tags != nil {
-		metadata.Tags = s.deduplicateTags(*req.Tags)
-	}
-	if req.Duration != nil {
-		metadata.Duration = *req.Duration
-	}
-	if req.Resolution != nil {
-		metadata.Resolution = *req.Resolution
-	}
-	if req.Bitrate != nil {
-		metadata.Bitrate = *req.Bitrate
-	}
-	if req.Thumbnail != nil {
-		metadata.Thumbnail = *req.Thumbnail
-	}
-
-	// 更新时间戳
-	metadata.UpdatedAt = time.Now()
-
-	return nil
+	return fromDBMetadata(&dbMetadata), nil
 }
 
 // DeleteMetadata 删除文件元数据
 func (s *MetadataService) DeleteMetadata(ctx context.Context, fileID string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if _, exists := s.storage[fileID]; !exists {
+	result := s.db.WithContext(ctx).Where("file_id = ?", fileID).Delete(&db.VideoMetadata{})
+	if result.Error != nil {
+		return fmt.Errorf("删除元数据失败: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
 		return fmt.Errorf("元数据不存在: %s", fileID)
 	}
-
-	delete(s.storage, fileID)
 	return nil
-}
-
-// GetMetadataByObjectName 根据对象名获取元数据
-func (s *MetadataService) GetMetadataByObjectName(ctx context.Context, bucketName, objectName string) (*FileMetadata, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	for _, metadata := range s.storage {
-		if metadata.BucketName == bucketName && metadata.ObjectName == objectName {
-			return s.copyMetadata(metadata), nil
-		}
-	}
-
-	return nil, fmt.Errorf("未找到对象的元数据: %s/%s", bucketName, objectName)
-}
-
-// SearchMetadata 搜索文件元数据
-func (s *MetadataService) SearchMetadata(ctx context.Context, req *SearchMetadataRequest) (*SearchMetadataResponse, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var matches []*FileMetadata
-
-	// 遍历所有元数据进行匹配
-	for _, metadata := range s.storage {
-		if s.matchesSearchCriteria(metadata, req) {
-			matches = append(matches, s.copyMetadata(metadata))
-		}
-	}
-
-	// 应用偏移和限制
-	total := len(matches)
-	start := req.Offset
-	if start > total {
-		start = total
-	}
-
-	end := start + req.Limit
-	if end > total {
-		end = total
-	}
-
-	if start >= total {
-		matches = []*FileMetadata{}
-	} else {
-		matches = matches[start:end]
-	}
-
-	return &SearchMetadataResponse{
-		Items: matches,
-		Total: total,
-	}, nil
 }
 
 // ListMetadata 列出文件元数据
 func (s *MetadataService) ListMetadata(ctx context.Context, req *ListMetadataRequest) (*ListMetadataResponse, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	var dbMetadatas []db.VideoMetadata
+	var total int64
 
-	// 获取所有元数据
-	var items []*FileMetadata
-	for _, metadata := range s.storage {
-		items = append(items, s.copyMetadata(metadata))
+	db := s.db.WithContext(ctx).Model(&db.VideoMetadata{})
+
+	// 计算总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, fmt.Errorf("查询元数据总数失败: %w", err)
 	}
 
-	// 排序
-	s.sortMetadata(items, req.SortBy, req.Order)
+	// 应用排序
+	order := "desc"
+	if req.Order == "asc" {
+		order = "asc"
+	}
+	db = db.Order(fmt.Sprintf("%s %s", req.SortBy, order))
 
 	// 应用分页
-	total := len(items)
-	start := req.Offset
-	if start > total {
-		start = total
+	db = db.Offset(req.Offset).Limit(req.Limit)
+
+	// 查询数据
+	if err := db.Find(&dbMetadatas).Error; err != nil {
+		return nil, fmt.Errorf("查询元数据列表失败: %w", err)
 	}
 
-	end := start + req.Limit
-	if end > total {
-		end = total
-	}
-
-	if start >= total {
-		items = []*FileMetadata{}
-	} else {
-		items = items[start:end]
+	// 转换为FileMetadata
+	var items []*FileMetadata
+	for _, dbm := range dbMetadatas {
+		items = append(items, fromDBMetadata(&dbm))
 	}
 
 	return &ListMetadataResponse{
 		Items: items,
-		Total: total,
+		Total: int(total),
 	}, nil
-}
-
-// AddTags 添加标签
-func (s *MetadataService) AddTags(ctx context.Context, fileID string, tags []string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	metadata, exists := s.storage[fileID]
-	if !exists {
-		return fmt.Errorf("元数据不存在: %s", fileID)
-	}
-
-	// 合并现有标签和新标签
-	allTags := append(metadata.Tags, tags...)
-	metadata.Tags = s.deduplicateTags(allTags)
-	metadata.UpdatedAt = time.Now()
-
-	return nil
-}
-
-// RemoveTags 移除标签
-func (s *MetadataService) RemoveTags(ctx context.Context, fileID string, tags []string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	metadata, exists := s.storage[fileID]
-	if !exists {
-		return fmt.Errorf("元数据不存在: %s", fileID)
-	}
-
-	// 创建要移除的标签映射
-	toRemove := make(map[string]bool)
-	for _, tag := range tags {
-		toRemove[tag] = true
-	}
-
-	// 过滤掉要移除的标签
-	var remainingTags []string
-	for _, tag := range metadata.Tags {
-		if !toRemove[tag] {
-			remainingTags = append(remainingTags, tag)
-		}
-	}
-
-	metadata.Tags = remainingTags
-	metadata.UpdatedAt = time.Now()
-
-	return nil
 }
 
 // ValidateMetadata 验证元数据
@@ -344,99 +204,43 @@ func (s *MetadataService) ValidateMetadata(metadata *FileMetadata) error {
 	return nil
 }
 
-// matchesSearchCriteria 检查元数据是否匹配搜索条件
-func (s *MetadataService) matchesSearchCriteria(metadata *FileMetadata, req *SearchMetadataRequest) bool {
-	// 检查查询关键词
-	if req.Query != "" {
-		query := strings.ToLower(req.Query)
-		title := strings.ToLower(metadata.Title)
-		description := strings.ToLower(metadata.Description)
-		
-		if !strings.Contains(title, query) && !strings.Contains(description, query) {
-			return false
-		}
+// toDBMetadata 将FileMetadata转换为db.VideoMetadata
+func toDBMetadata(fm *FileMetadata) *db.VideoMetadata {
+	return &db.VideoMetadata{
+		FileID:      fm.FileID,
+		BucketName:  fm.BucketName,
+		ObjectName:  fm.ObjectName,
+		FileName:    fm.FileName,
+		Title:       fm.Title,
+		Description: fm.Description,
+		ContentType: fm.ContentType,
+		FileSize:    fm.FileSize,
+		Duration:    fm.Duration,
+		Resolution:  fm.Resolution,
+		Thumbnail:   fm.Thumbnail,
+		Tags:        strings.Join(fm.Tags, ","),
+		CreatedBy:   fm.CreatedBy,
+		UploadedAt:  fm.CreatedAt,
 	}
-
-	// 检查标签
-	if len(req.Tags) > 0 {
-		metadataTags := make(map[string]bool)
-		for _, tag := range metadata.Tags {
-			metadataTags[strings.ToLower(tag)] = true
-		}
-
-		for _, reqTag := range req.Tags {
-			if !metadataTags[strings.ToLower(reqTag)] {
-				return false
-			}
-		}
-	}
-
-	// 检查创建者
-	if req.CreatedBy != "" && metadata.CreatedBy != req.CreatedBy {
-		return false
-	}
-
-	return true
 }
 
-// sortMetadata 排序元数据
-func (s *MetadataService) sortMetadata(items []*FileMetadata, sortBy, order string) {
-	if sortBy == "" {
-		sortBy = "created_at"
+// fromDBMetadata 将db.VideoMetadata转换为FileMetadata
+func fromDBMetadata(dbm *db.VideoMetadata) *FileMetadata {
+	return &FileMetadata{
+		FileID:      dbm.FileID,
+		BucketName:  dbm.BucketName,
+		ObjectName:  dbm.ObjectName,
+		FileName:    dbm.FileName,
+		Title:       dbm.Title,
+		Description: dbm.Description,
+		ContentType: dbm.ContentType,
+		FileSize:    dbm.FileSize,
+		Duration:    dbm.Duration,
+		Resolution:  dbm.Resolution,
+		Thumbnail:   dbm.Thumbnail,
+		Tags:        strings.Split(dbm.Tags, ","),
+		CreatedBy:   dbm.CreatedBy,
+		CreatedAt:   dbm.UploadedAt,
+		UpdatedAt:   dbm.UpdatedAt,
 	}
-	if order == "" {
-		order = "desc"
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		var less bool
-		switch sortBy {
-		case "title":
-			less = items[i].Title < items[j].Title
-		case "duration":
-			less = items[i].Duration < items[j].Duration
-		case "file_size":
-			less = items[i].FileSize < items[j].FileSize
-		case "created_at":
-			less = items[i].CreatedAt.Before(items[j].CreatedAt)
-		case "updated_at":
-			less = items[i].UpdatedAt.Before(items[j].UpdatedAt)
-		default:
-			less = items[i].CreatedAt.Before(items[j].CreatedAt)
-		}
-
-		if order == "desc" {
-			return !less
-		}
-		return less
-	})
-}
-
-// copyMetadata 复制元数据以避免并发修改
-func (s *MetadataService) copyMetadata(original *FileMetadata) *FileMetadata {
-	copy := *original
-	// 深拷贝标签切片
-	if original.Tags != nil {
-		copy.Tags = make([]string, len(original.Tags))
-		copySlice := copy.Tags
-		for i, tag := range original.Tags {
-			copySlice[i] = tag
-		}
-	}
-	return &copy
-}
-
-// deduplicateTags 去重标签
-func (s *MetadataService) deduplicateTags(tags []string) []string {
-	seen := make(map[string]bool)
-	var result []string
-
-	for _, tag := range tags {
-		if tag != "" && !seen[tag] {
-			seen[tag] = true
-			result = append(result, tag)
-		}
-	}
-
-	return result
 }

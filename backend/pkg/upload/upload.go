@@ -119,8 +119,8 @@ func (s *UploadService) UploadFile(ctx context.Context, req *UploadRequest) (*Up
 		return nil, err
 	}
 
-	// 生成对象名
-	objectName := s.GenerateObjectName(req.FileName)
+	// 直接使用请求中提供的对象名
+	objectName := req.FileName
 
 	// 读取所有数据
 	data, err := io.ReadAll(req.Reader)

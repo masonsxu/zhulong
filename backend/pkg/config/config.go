@@ -17,6 +17,7 @@ type Config struct {
 	App    AppConfig
 	JWT    JWTConfig
 	Upload UploadConfig
+	Postgres PostgresConfig
 }
 
 // ServerConfig 服务器配置
@@ -33,6 +34,16 @@ type MinIOConfig struct {
 	UseSSL    bool
 	Region    string
 	Bucket    string
+}
+
+// PostgresConfig PostgreSQL配置
+type PostgresConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
 }
 
 // AppConfig 应用配置
@@ -131,6 +142,14 @@ func (c *Config) loadFromEnv() {
 			c.Upload.AllowedTypes[i] = strings.TrimSpace(t)
 		}
 	}
+
+	// PostgreSQL配置
+	c.Postgres.Host = getEnvString("POSTGRES_HOST", "")
+	c.Postgres.Port = getEnvInt("POSTGRES_PORT", 0)
+	c.Postgres.User = getEnvString("POSTGRES_USER", "")
+	c.Postgres.Password = getEnvString("POSTGRES_PASSWORD", "")
+	c.Postgres.DBName = getEnvString("POSTGRES_DBNAME", "")
+	c.Postgres.SSLMode = getEnvString("POSTGRES_SSLMODE", "")
 }
 
 // applyDefaults 应用默认值
@@ -173,6 +192,23 @@ func (c *Config) applyDefaults() {
 	}
 	if len(c.Upload.AllowedTypes) == 0 {
 		c.Upload.AllowedTypes = []string{"video/mp4", "video/avi", "video/mov", "video/webm"}
+	}
+
+	// PostgreSQL默认值
+	if c.Postgres.Host == "" {
+		c.Postgres.Host = "localhost"
+	}
+	if c.Postgres.Port == 0 {
+		c.Postgres.Port = 5432
+	}
+	if c.Postgres.User == "" {
+		c.Postgres.User = "postgres"
+	}
+	if c.Postgres.DBName == "" {
+		c.Postgres.DBName = "zhulong"
+	}
+	if c.Postgres.SSLMode == "" {
+		c.Postgres.SSLMode = "disable"
 	}
 }
 
