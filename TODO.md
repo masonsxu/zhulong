@@ -48,15 +48,14 @@
 
 ### RESTful API 实现
 
-- [x] **API-001**: POST /api/v1/videos - 视频上传接口
-- [x] **API-002**: GET /api/v1/videos - 获取视频列表接口
-- [x] **API-003**: GET /api/v1/videos/:id - 获取单个视频信息
-- [x] **API-004**: GET /api/v1/videos/:id/play - 获取视频播放 URL
-- [x] **API-005**: DELETE /api/v1/videos/:id - 删除视频接口
+- [ ] **API-001**: POST /api/v1/videos - 视频上传接口
+- [ ] **API-002**: GET /api/v1/videos - 获取视频列表接口
+- [ ] **API-003**: GET /api/v1/videos/:id - 获取单个视频信息
+- [ ] **API-004**: GET /api/v1/videos/:id/play - 获取视频播放 URL
+- [ ] **API-005**: DELETE /api/v1/videos/:id - 删除视频接口
 
 ### API 安全和验证
 
-- [x] **SECURITY-000**: 添加 CORS 跨域配置 (支持前端访问)
 - [ ] **SECURITY-001**: 实现 IP 白名单限制 (局域网访问)
 - [ ] **SECURITY-002**: 添加请求参数验证
 - [ ] **SECURITY-003**: 实现访问日志记录
@@ -65,15 +64,15 @@
 
 ### React 应用初始化
 
-- [x] **FRONTEND-001**: 初始化 React 项目结构
-- [x] **FRONTEND-002**: 配置构建工具 (Vite 或 Webpack)
-- [x] **FRONTEND-003**: 设置 ESLint 和 Prettier 代码规范
+- [ ] **FRONTEND-001**: 初始化 React 项目结构
+- [ ] **FRONTEND-002**: 配置构建工具 (Vite 或 Webpack)
+- [ ] **FRONTEND-003**: 设置 ESLint 和 Prettier 代码规范
 
 ### 核心组件开发
 
-- [x] **COMPONENT-001**: 开发 VideoUpload 上传组件
-- [x] **COMPONENT-002**: 开发 VideoPlayer 播放器组件
-- [x] **COMPONENT-003**: 开发 VideoList 视频列表组件
+- [ ] **COMPONENT-001**: 开发 VideoUpload 上传组件
+- [ ] **COMPONENT-002**: 开发 VideoPlayer 播放器组件
+- [ ] **COMPONENT-003**: 开发 VideoList 视频列表组件
 
 ## 完成标准
 

@@ -5,7 +5,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -79,26 +78,18 @@ func UploadVideo(ctx context.Context, c *app.RequestContext) {
 func GetVideoList(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req api.VideoListRequest
-	
-	// 手动绑定查询参数，避免处理表单数据
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil {
-			req.Page = int32(page)
-		}
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.JSON(consts.StatusBadRequest, &api.VideoListResponse{
+			Base: &api.BaseResponse{
+				Code:    2000,
+				Message: "请求参数错误: " + err.Error(),
+			},
+			Videos: []*api.Video{},
+			Total:  0,
+		})
+		return
 	}
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
-			req.PageSize = int32(limit)
-		}
-	}
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
-			req.PageSize = int32(pageSize)
-		}
-	}
-	req.Search = c.Query("search")
-	req.SortBy = c.Query("sort_by")
-	req.SortOrder = c.Query("sort_order")
 
 	// 调用服务层处理
 	resp, err := videoService.GetVideoList(ctx, &req)
@@ -127,156 +118,45 @@ func GetVideoList(ctx context.Context, c *app.RequestContext) {
 func GetVideoDetail(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req api.VideoDetailRequest
-	
-	// 从路径参数获取video_id
-	videoID := c.Param("video_id")
-	req.VideoID = videoID
-	
-	// 不需要BindAndValidate，因为只有路径参数
-	if videoID == "" {
-		c.JSON(consts.StatusBadRequest, &api.VideoDetailResponse{
-			Base: &api.BaseResponse{
-				Code:    2000,
-				Message: "路径参数video_id不能为空",
-			},
-			Video: nil,
-		})
-		return
-	}
-
-	// 调用服务层处理
-	resp, err := videoService.GetVideoDetail(ctx, &req)
+	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, &api.VideoDetailResponse{
-			Base: &api.BaseResponse{
-				Code:    5000,
-				Message: "服务器内部错误: " + err.Error(),
-			},
-			Video: nil,
-		})
+		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
 
-	// 根据业务逻辑返回相应的HTTP状态码
-	if resp.Base.Code == 0 {
-		c.JSON(consts.StatusOK, resp)
-	} else if resp.Base.Code == 3001 {
-		// 视频不存在，返回404
-		c.JSON(consts.StatusNotFound, resp)
-	} else {
-		// 其他业务错误，返回400
-		c.JSON(consts.StatusBadRequest, resp)
-	}
+	resp := new(api.VideoDetailResponse)
+
+	c.JSON(consts.StatusOK, resp)
 }
 
 // GetVideoPlayURL .
 // @router /api/v1/videos/:video_id/play [GET]
 func GetVideoPlayURL(ctx context.Context, c *app.RequestContext) {
+	var err error
 	var req api.VideoPlayURLRequest
-	
-	// 从路径参数获取video_id
-	videoID := c.Param("video_id")
-	req.VideoID = videoID
-	
-	// 从查询参数获取expire_seconds（可选）
-	expireSecondsStr := c.DefaultQuery("expire_seconds", "3600") // 默认3600秒
-	if expireSecondsStr != "" {
-		if expireSeconds, err := strconv.ParseInt(expireSecondsStr, 10, 32); err == nil {
-			req.ExpireSeconds = int32(expireSeconds)
-		} else {
-			c.JSON(consts.StatusBadRequest, &api.VideoPlayURLResponse{
-				Base: &api.BaseResponse{
-					Code:    4000,
-					Message: "expire_seconds参数格式错误: " + err.Error(),
-				},
-				PlayURL:   "",
-				ExpiresAt: 0,
-			})
-			return
-		}
-	} else {
-		req.ExpireSeconds = 3600 // 默认1小时
-	}
-
-	// 基本参数验证
-	if videoID == "" {
-		c.JSON(consts.StatusBadRequest, &api.VideoPlayURLResponse{
-			Base: &api.BaseResponse{
-				Code:    4000,
-				Message: "路径参数video_id不能为空",
-			},
-			PlayURL:   "",
-			ExpiresAt: 0,
-		})
-		return
-	}
-
-	// 调用服务层处理
-	resp, err := videoService.GetVideoPlayURL(ctx, &req)
+	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, &api.VideoPlayURLResponse{
-			Base: &api.BaseResponse{
-				Code:    5000,
-				Message: "服务器内部错误: " + err.Error(),
-			},
-			PlayURL:   "",
-			ExpiresAt: 0,
-		})
+		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
 
-	// 根据业务逻辑返回相应的HTTP状态码
-	if resp.Base.Code == 0 {
-		c.JSON(consts.StatusOK, resp)
-	} else if resp.Base.Code == 4001 {
-		// 视频不存在，返回404
-		c.JSON(consts.StatusNotFound, resp)
-	} else {
-		// 其他业务错误，返回400
-		c.JSON(consts.StatusBadRequest, resp)
-	}
+	resp := new(api.VideoPlayURLResponse)
+
+	c.JSON(consts.StatusOK, resp)
 }
 
 // DeleteVideo .
 // @router /api/v1/videos/:video_id [DELETE]
 func DeleteVideo(ctx context.Context, c *app.RequestContext) {
+	var err error
 	var req api.VideoDeleteRequest
-	
-	// 从路径参数获取video_id
-	videoID := c.Param("video_id")
-	req.VideoID = videoID
-	
-	// 基本参数验证
-	if videoID == "" {
-		c.JSON(consts.StatusBadRequest, &api.VideoDeleteResponse{
-			Base: &api.BaseResponse{
-				Code:    5000,
-				Message: "路径参数video_id不能为空",
-			},
-		})
-		return
-	}
-
-	// 调用服务层处理
-	resp, err := videoService.DeleteVideo(ctx, &req)
+	err = c.BindAndValidate(&req)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, &api.VideoDeleteResponse{
-			Base: &api.BaseResponse{
-				Code:    5000,
-				Message: "服务器内部错误: " + err.Error(),
-			},
-		})
+		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
 
-	// 根据业务逻辑返回相应的HTTP状态码
-	if resp.Base.Code == 0 {
-		c.JSON(consts.StatusOK, resp)
-	} else if resp.Base.Code == 5001 {
-		// 视频不存在，返回404
-		c.JSON(consts.StatusNotFound, resp)
-	} else {
-		// 其他业务错误，返回400
-		c.JSON(consts.StatusBadRequest, resp)
-	}
+	resp := new(api.VideoDeleteResponse)
+
+	c.JSON(consts.StatusOK, resp)
 }

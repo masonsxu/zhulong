@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/manteia/zhulong/pkg/storage"
-	"github.com/manteia/zhulong/testconfig"
 )
 
 // TestDownloadService_DownloadFile 测试文件下载
@@ -23,7 +22,7 @@ func TestDownloadService_DownloadFile(t *testing.T) {
 	downloadService := NewDownloadService(storageService)
 
 	ctx := context.Background()
-	bucketName := "test-bucket-" + generateTestID()
+	bucketName := "test-bucket"
 	objectName := "test-video.mp4"
 
 	// 创建测试存储桶
@@ -69,7 +68,7 @@ func TestDownloadService_GeneratePresignedURL(t *testing.T) {
 	downloadService := NewDownloadService(storageService)
 
 	ctx := context.Background()
-	bucketName := "test-bucket-" + generateTestID()
+	bucketName := "test-bucket"
 	objectName := "test-video.mp4"
 
 	// 创建测试存储桶
@@ -118,7 +117,7 @@ func TestDownloadService_GeneratePresignedURL_CustomExpiration(t *testing.T) {
 	downloadService := NewDownloadService(storageService)
 
 	ctx := context.Background()
-	bucketName := "test-bucket-" + generateTestID()
+	bucketName := "test-bucket"
 	objectName := "test-video.mp4"
 
 	// 创建测试存储桶
@@ -176,7 +175,7 @@ func TestDownloadService_GeneratePresignedURL_DifferentMethods(t *testing.T) {
 	downloadService := NewDownloadService(storageService)
 
 	ctx := context.Background()
-	bucketName := "test-bucket-" + generateTestID()
+	bucketName := "test-bucket"
 	objectName := "test-video.mp4"
 
 	// 创建测试存储桶
@@ -351,7 +350,7 @@ func TestDownloadService_FileNotFound(t *testing.T) {
 	downloadService := NewDownloadService(storageService)
 
 	ctx := context.Background()
-	bucketName := "test-bucket-" + generateTestID()
+	bucketName := "test-bucket"
 	objectName := "non-existent-file.mp4"
 
 	// 创建测试存储桶
@@ -397,13 +396,12 @@ func TestDownloadService_GenerateDownloadURL(t *testing.T) {
 
 // isStorageAvailable 检查存储服务是否可用
 func isStorageAvailable() bool {
-	testConfig := testconfig.GetMinIOTestConfig()
 	storageConfig := &storage.MinIOConfig{
-		Endpoint:  testConfig.GetEndpoint(),
-		AccessKey: testConfig.AccessKey,
-		SecretKey: testConfig.SecretKey,
-		UseSSL:    testConfig.UseSSL,
-		Region:    testConfig.Region,
+		Endpoint:  "localhost:9000",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
+		UseSSL:    false,
+		Region:    "us-east-1",
 	}
 
 	storageService, err := storage.NewMinIOStorage(storageConfig)
@@ -418,22 +416,16 @@ func isStorageAvailable() bool {
 
 // setupTestStorage 设置测试存储服务
 func setupTestStorage(t *testing.T) storage.StorageInterface {
-	testConfig := testconfig.GetMinIOTestConfig()
 	storageConfig := &storage.MinIOConfig{
-		Endpoint:  testConfig.GetEndpoint(),
-		AccessKey: testConfig.AccessKey,
-		SecretKey: testConfig.SecretKey,
-		UseSSL:    testConfig.UseSSL,
-		Region:    testConfig.Region,
+		Endpoint:  "localhost:9000",
+		AccessKey: "admin",
+		SecretKey: "admin123456",
+		UseSSL:    false,
+		Region:    "us-east-1",
 	}
 
 	storageService, err := storage.NewMinIOStorage(storageConfig)
 	require.NoError(t, err)
 
 	return storageService
-}
-
-// generateTestID 生成测试ID
-func generateTestID() string {
-	return strings.ReplaceAll(time.Now().Format("20060102-150405.000"), ".", "")
 }

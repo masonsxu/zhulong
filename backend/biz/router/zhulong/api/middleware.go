@@ -3,36 +3,12 @@
 package api
 
 import (
-	"context"
-	"time"
-
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"github.com/hertz-contrib/cors"
 )
 
-// OPTIONS处理函数
-func OptionsHandler(ctx context.Context, c *app.RequestContext) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS")
-	c.Header("Access-Control-Allow-Headers", "Origin, Content-Length, Content-Type, Authorization, Accept, X-Requested-With, Cache-Control, Accept-Language, Accept-Encoding, Connection, Host, Referer, User-Agent")
-	c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
-	c.Header("Access-Control-Max-Age", "43200") // 12小时
-	c.Status(consts.StatusOK)
-}
-
 func rootMw() []app.HandlerFunc {
-	// 根据官方文档配置CORS中间件
-	return []app.HandlerFunc{
-		cors.New(cors.Config{
-			AllowAllOrigins:  true,
-			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-			AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Accept", "X-Requested-With", "Cache-Control", "Accept-Language", "Accept-Encoding", "Connection", "Host", "Referer", "User-Agent"},
-			ExposeHeaders:    []string{"Content-Length", "Content-Type"},
-			AllowCredentials: false,          //   AllowAllOrigins=true时必须为false
-			MaxAge:           12 * time.Hour, // 预检请求缓存12小时
-		}),
-	}
+	// your code...
+	return nil
 }
 
 func _healthcheckMw() []app.HandlerFunc {

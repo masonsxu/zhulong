@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,14 +19,14 @@ import (
 
 // VideoService 视频服务
 type VideoService struct {
-	config             *config.Config
-	storageClient      storage.StorageInterface
-	uploadService      *upload.UploadService
-	metadataService    *metadata.MetadataService
-	videoValidator     *video.VideoValidator
-	videoExtractor     *video.VideoInfoExtractor
+	config            *config.Config
+	storageClient     storage.StorageInterface
+	uploadService     *upload.UploadService
+	metadataService   *metadata.MetadataService
+	videoValidator    *video.VideoValidator
+	videoExtractor    *video.VideoInfoExtractor
 	thumbnailGenerator *video.ThumbnailGenerator
-	sizeLimitManager   *video.SizeLimitManager
+	sizeLimitManager  *video.SizeLimitManager
 }
 
 // NewVideoService 创建视频服务
@@ -38,7 +37,7 @@ func NewVideoService() (*VideoService, error) {
 		return nil, fmt.Errorf("加载配置失败: %v", err)
 	}
 
-	// 初始化存储客户端
+	// 初始化存储客户端 
 	storageClient, err := storage.NewMinIOStorage(&storage.MinIOConfig{
 		Endpoint:  cfg.MinIO.Endpoint,
 		AccessKey: cfg.MinIO.AccessKey,
@@ -48,8 +47,6 @@ func NewVideoService() (*VideoService, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化存储客户端失败: %v", err)
-	} else {
-		fmt.Errorf("初始化存储客户端成功。")
 	}
 
 	// 初始化各种服务
@@ -61,14 +58,14 @@ func NewVideoService() (*VideoService, error) {
 	sizeLimitManager := video.NewSizeLimitManager()
 
 	return &VideoService{
-		config:             cfg,
-		storageClient:      storageClient,
-		uploadService:      uploadService,
-		metadataService:    metadataService,
-		videoValidator:     videoValidator,
-		videoExtractor:     videoExtractor,
+		config:            cfg,
+		storageClient:     storageClient,
+		uploadService:     uploadService,
+		metadataService:   metadataService,
+		videoValidator:    videoValidator,
+		videoExtractor:    videoExtractor,
 		thumbnailGenerator: thumbnailGenerator,
-		sizeLimitManager:   sizeLimitManager,
+		sizeLimitManager:  sizeLimitManager,
 	}, nil
 }
 
@@ -366,247 +363,5 @@ func (s *VideoService) videoListErrorResponse(code int32, message string) *api.V
 		},
 		Videos: []*api.Video{},
 		Total:  0,
-	}
-}
-
-// GetVideoDetail 获取视频详情
-func (s *VideoService) GetVideoDetail(ctx context.Context, req *api.VideoDetailRequest) (*api.VideoDetailResponse, error) {
-	// 参数验证
-	if err := s.validateVideoDetailRequest(req); err != nil {
-		return s.videoDetailErrorResponse(3000, err.Error()), nil
-	}
-
-	// 查询视频元数据
-	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
-	if err != nil {
-		return s.videoDetailErrorResponse(3001, "视频不存在"), nil
-	}
-
-	// 转换为API响应格式
-	video := s.convertMetadataToVideo(metadata)
-
-	return &api.VideoDetailResponse{
-		Base: &api.BaseResponse{
-			Code:    0,
-			Message: "获取成功",
-		},
-		Video: video,
-	}, nil
-}
-
-// validateVideoDetailRequest 验证视频详情请求
-func (s *VideoService) validateVideoDetailRequest(req *api.VideoDetailRequest) error {
-	if req.VideoID == "" {
-		return fmt.Errorf("视频ID不能为空")
-	}
-
-	// 验证视频ID格式（去除空格）
-	videoID := strings.TrimSpace(req.VideoID)
-	if videoID == "" {
-		return fmt.Errorf("视频ID不能为空或只包含空格")
-	}
-
-	// 更新请求中的videoID（去除空格）
-	req.VideoID = videoID
-
-	return nil
-}
-
-// convertMetadataToVideo 将元数据转换为Video结构
-func (s *VideoService) convertMetadataToVideo(metadata *metadata.FileMetadata) *api.Video {
-	video := &api.Video{
-		ID:            metadata.FileID,
-		Title:         metadata.Title,
-		Filename:      metadata.FileName,
-		ContentType:   metadata.ContentType,
-		Size:          metadata.FileSize,
-		Duration:      metadata.Duration,
-		Width:         0, // 默认值
-		Height:        0, // 默认值
-		StoragePath:   metadata.ObjectName,
-		ThumbnailPath: metadata.Thumbnail,
-		UploadedAt:    metadata.CreatedAt.UnixMilli(),
-		UpdatedAt:     metadata.UpdatedAt.UnixMilli(),
-	}
-
-	// 解析分辨率
-	if metadata.Resolution != "" {
-		s.parseResolution(metadata.Resolution, video)
-	}
-
-	return video
-}
-
-// parseResolution 解析分辨率字符串
-func (s *VideoService) parseResolution(resolution string, video *api.Video) {
-	// 尝试解析分辨率格式：如 "1920x1080"
-	var width, height int32
-	n, err := fmt.Sscanf(resolution, "%dx%d", &width, &height)
-	if err == nil && n == 2 && width > 0 && height > 0 {
-		video.Width = width
-		video.Height = height
-	}
-	// 解析失败时保持默认值0
-}
-
-// videoDetailErrorResponse 创建视频详情错误响应
-func (s *VideoService) videoDetailErrorResponse(code int32, message string) *api.VideoDetailResponse {
-	return &api.VideoDetailResponse{
-		Base: &api.BaseResponse{
-			Code:    code,
-			Message: message,
-		},
-		Video: nil,
-	}
-}
-
-// GetVideoPlayURL 获取视频播放URL
-func (s *VideoService) GetVideoPlayURL(ctx context.Context, req *api.VideoPlayURLRequest) (*api.VideoPlayURLResponse, error) {
-	// 参数验证
-	if err := s.validateVideoPlayURLRequest(req); err != nil {
-		return s.videoPlayURLErrorResponse(4000, err.Error()), nil
-	}
-
-	// 查询视频元数据确认视频存在
-	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
-	if err != nil {
-		return s.videoPlayURLErrorResponse(4001, "视频不存在"), nil
-	}
-
-	// 设置过期时间
-	expireSeconds := req.ExpireSeconds
-	if expireSeconds == 0 {
-		expireSeconds = 3600 // 默认1小时
-	}
-
-	// 生成预签名URL
-	expiry := time.Duration(expireSeconds) * time.Second
-	playURL, err := s.storageClient.GetPresignedURL(ctx, metadata.BucketName, metadata.ObjectName, expiry)
-	if err != nil {
-		return s.videoPlayURLErrorResponse(5000, fmt.Sprintf("生成播放URL失败: %v", err)), nil
-	}
-
-	// 计算过期时间戳
-	expiresAt := time.Now().Add(expiry).UnixMilli()
-
-	return &api.VideoPlayURLResponse{
-		Base: &api.BaseResponse{
-			Code:    0,
-			Message: "获取成功",
-		},
-		PlayURL:   playURL,
-		ExpiresAt: expiresAt,
-	}, nil
-}
-
-// validateVideoPlayURLRequest 验证获取播放URL请求
-func (s *VideoService) validateVideoPlayURLRequest(req *api.VideoPlayURLRequest) error {
-	if req.VideoID == "" {
-		return fmt.Errorf("视频ID不能为空")
-	}
-
-	// 验证视频ID格式（去除空格）
-	videoID := strings.TrimSpace(req.VideoID)
-	if videoID == "" {
-		return fmt.Errorf("视频ID不能为空或只包含空格")
-	}
-
-	// 更新请求中的videoID（去除空格）
-	req.VideoID = videoID
-
-	// 验证过期时间
-	if req.ExpireSeconds < 0 {
-		return fmt.Errorf("过期时间不能为负数")
-	}
-
-	// 最大过期时间限制为7天
-	maxExpireSeconds := int32(7 * 24 * 3600) // 7天
-	if req.ExpireSeconds > maxExpireSeconds {
-		return fmt.Errorf("过期时间不能超过7天")
-	}
-
-	return nil
-}
-
-// videoPlayURLErrorResponse 创建播放URL错误响应
-func (s *VideoService) videoPlayURLErrorResponse(code int32, message string) *api.VideoPlayURLResponse {
-	return &api.VideoPlayURLResponse{
-		Base: &api.BaseResponse{
-			Code:    code,
-			Message: message,
-		},
-		PlayURL:   "",
-		ExpiresAt: 0,
-	}
-}
-
-// DeleteVideo 删除视频
-func (s *VideoService) DeleteVideo(ctx context.Context, req *api.VideoDeleteRequest) (*api.VideoDeleteResponse, error) {
-	// 参数验证
-	if err := s.validateVideoDeleteRequest(req); err != nil {
-		return s.videoDeleteErrorResponse(5000, err.Error()), nil
-	}
-
-	// 查询视频元数据确认视频存在
-	metadata, err := s.metadataService.GetMetadata(ctx, req.VideoID)
-	if err != nil {
-		return s.videoDeleteErrorResponse(5001, "视频不存在"), nil
-	}
-
-	// 删除视频文件
-	err = s.storageClient.DeleteFile(ctx, metadata.BucketName, metadata.ObjectName)
-	if err != nil {
-		return s.videoDeleteErrorResponse(5002, fmt.Sprintf("删除视频文件失败: %v", err)), nil
-	}
-
-	// 删除缩略图文件（如果存在）
-	if metadata.Thumbnail != "" {
-		err = s.storageClient.DeleteFile(ctx, metadata.BucketName, metadata.Thumbnail)
-		if err != nil {
-			// 缩略图删除失败不阻断流程，只记录日志
-			fmt.Printf("删除缩略图失败: %v\n", err)
-		}
-	}
-
-	// 删除元数据
-	err = s.metadataService.DeleteMetadata(ctx, req.VideoID)
-	if err != nil {
-		// 文件已删除但元数据删除失败，记录特定错误
-		return s.videoDeleteErrorResponse(5003, fmt.Sprintf("删除元数据失败: %v", err)), nil
-	}
-
-	return &api.VideoDeleteResponse{
-		Base: &api.BaseResponse{
-			Code:    0,
-			Message: "删除成功",
-		},
-	}, nil
-}
-
-// validateVideoDeleteRequest 验证删除视频请求
-func (s *VideoService) validateVideoDeleteRequest(req *api.VideoDeleteRequest) error {
-	if req.VideoID == "" {
-		return fmt.Errorf("视频ID不能为空")
-	}
-
-	// 验证视频ID格式（去除空格）
-	videoID := strings.TrimSpace(req.VideoID)
-	if videoID == "" {
-		return fmt.Errorf("视频ID不能为空")
-	}
-
-	// 更新请求中的videoID（去除空格）
-	req.VideoID = videoID
-
-	return nil
-}
-
-// videoDeleteErrorResponse 创建删除视频错误响应
-func (s *VideoService) videoDeleteErrorResponse(code int32, message string) *api.VideoDeleteResponse {
-	return &api.VideoDeleteResponse{
-		Base: &api.BaseResponse{
-			Code:    code,
-			Message: message,
-		},
 	}
 }

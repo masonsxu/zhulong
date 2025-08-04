@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -201,18 +200,12 @@ func (s *MinIOStorage) ListFiles(ctx context.Context, bucketName, prefix string)
 	var files []*FileInfo
 
 	objectCh := s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: true, // 递归列出所有文件
+		Prefix: prefix,
 	})
 
 	for object := range objectCh {
 		if object.Err != nil {
 			return nil, fmt.Errorf("列出文件失败: %w", object.Err)
-		}
-
-		// 跳过目录对象（以/结尾且大小为0）
-		if strings.HasSuffix(object.Key, "/") && object.Size == 0 {
-			continue
 		}
 
 		files = append(files, &FileInfo{
