@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -15,14 +16,18 @@ import (
 
 // 全局视频服务实例
 var videoService *service.VideoService
+var initOnce sync.Once
 
-// init 初始化服务
-func init() {
-	var err error
-	videoService, err = service.NewVideoService()
-	if err != nil {
-		panic(fmt.Sprintf("初始化视频服务失败: %v", err))
-	}
+// getVideoService 获取视频服务单例
+func getVideoService() *service.VideoService {
+	initOnce.Do(func() {
+		var err error
+		videoService, err = service.NewVideoService()
+		if err != nil {
+			panic(fmt.Sprintf("初始化视频服务失败: %v", err))
+		}
+	})
+	return videoService
 }
 
 // UploadVideo .
@@ -55,7 +60,7 @@ func UploadVideo(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// 调用服务层处理上传
-	resp, err := videoService.UploadVideo(ctx, &req, fileHeader)
+	resp, err := getVideoService().UploadVideo(ctx, &req, fileHeader)
 	if err != nil {
 		c.JSON(consts.StatusInternalServerError, &api.VideoUploadResponse{
 			Base: &api.BaseResponse{
@@ -101,7 +106,7 @@ func GetVideoList(ctx context.Context, c *app.RequestContext) {
 	req.SortOrder = c.Query("sort_order")
 
 	// 调用服务层处理
-	resp, err := videoService.GetVideoList(ctx, &req)
+	resp, err := getVideoService().GetVideoList(ctx, &req)
 	if err != nil {
 		c.JSON(consts.StatusInternalServerError, &api.VideoListResponse{
 			Base: &api.BaseResponse{
@@ -145,7 +150,7 @@ func GetVideoDetail(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// 调用服务层处理
-	resp, err := videoService.GetVideoDetail(ctx, &req)
+	resp, err := getVideoService().GetVideoDetail(ctx, &req)
 	if err != nil {
 		c.JSON(consts.StatusInternalServerError, &api.VideoDetailResponse{
 			Base: &api.BaseResponse{
@@ -212,7 +217,7 @@ func GetVideoPlayURL(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// 调用服务层处理
-	resp, err := videoService.GetVideoPlayURL(ctx, &req)
+	resp, err := getVideoService().GetVideoPlayURL(ctx, &req)
 	if err != nil {
 		c.JSON(consts.StatusInternalServerError, &api.VideoPlayURLResponse{
 			Base: &api.BaseResponse{
@@ -258,7 +263,7 @@ func DeleteVideo(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// 调用服务层处理
-	resp, err := videoService.DeleteVideo(ctx, &req)
+	resp, err := getVideoService().DeleteVideo(ctx, &req)
 	if err != nil {
 		c.JSON(consts.StatusInternalServerError, &api.VideoDeleteResponse{
 			Base: &api.BaseResponse{

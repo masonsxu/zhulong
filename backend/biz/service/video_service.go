@@ -33,7 +33,7 @@ type VideoService struct {
 // NewVideoService 创建视频服务
 func NewVideoService() (*VideoService, error) {
 	// 加载配置
-	cfg, err := config.LoadFromFile("../config/development.yml")
+	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf("加载配置失败: %v", err)
 	}
@@ -48,8 +48,6 @@ func NewVideoService() (*VideoService, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化存储客户端失败: %v", err)
-	} else {
-		fmt.Errorf("初始化存储客户端成功。")
 	}
 
 	// 初始化各种服务
