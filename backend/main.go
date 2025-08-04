@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/cors"
 	"github.com/joho/godotenv"
 	_ "github.com/manteia/zhulong/biz/handler/zhulong/api"
 )
@@ -39,6 +41,16 @@ func main() {
 	log.Println("====================================================")
 
 	h := server.Default()
+
+	// 配置CORS中间件
+	h.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Accept", "X-Requested-With", "Cache-Control", "Accept-Language", "Accept-Encoding", "Connection", "Host", "Referer", "User-Agent"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	register(h)
 	h.Spin()
