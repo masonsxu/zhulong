@@ -4,43 +4,33 @@ package main
 
 import (
 	"log"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
-	"github.com/joho/godotenv"
+	"github.com/manteia/zhulong/pkg/config"
 	_ "github.com/manteia/zhulong/biz/handler/zhulong/api"
 )
 
 func main() {
-	// 加载.env文件
-	if err := godotenv.Load("../.env"); err != nil {
-		log.Printf("Warning: 无法加载.env文件: %v", err)
-		// 不退出程序，因为环境变量可能通过其他方式设置
+	// 加载配置
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("配置加载失败: %v", err)
 	}
 
-	// 调试：打印所有相关的环境变量
-	log.Println("==================== 环境变量配置 ====================")
-	envs := []string{
-		"ZHULONG_MINIO_ENDPOINT", "ZHULONG_MINIO_ACCESS_KEY", "ZHULONG_MINIO_SECRET_KEY", "ZHULONG_MINIO_BUCKET",
-		"JWT_SECRET", "JWT_EXPIRE", "PORT", "NODE_ENV", "UPLOAD_MAX_SIZE", "UPLOAD_ALLOWED_TYPES",
+	// 验证配置
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("配置验证失败: %v", err)
 	}
-	for _, env := range envs {
-		value := os.Getenv(env)
-		if strings.Contains(strings.ToUpper(env), "KEY") || strings.Contains(strings.ToUpper(env), "SECRET") {
-			if len(value) > 6 {
-				value = value[:3] + "****" + value[len(value)-3:]
-			} else {
-				value = "****"
-			}
-		}
-		log.Printf("%s: %s", env, value)
-	}
-	log.Println("====================================================")
 
-	h := server.Default()
+	// 打印配置信息（用于调试）
+	if cfg.App.Debug {
+		cfg.PrintConfig()
+	}
+
+	// 创建Hertz服务器，使用配置中的地址
+	h := server.Default(server.WithHostPorts(cfg.GetServerAddr()))
 
 	// 配置CORS中间件
 	h.Use(cors.New(cors.Config{
