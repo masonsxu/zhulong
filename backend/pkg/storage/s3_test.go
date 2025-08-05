@@ -2,62 +2,66 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/manteia/zhulong/testconfig"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/manteia/zhulong/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestMinIOStorage_Creation 测试MinIO存储实例创建
-func TestMinIOStorage_Creation(t *testing.T) {
+// TestS3Storage_Creation 测试S3存储实例创建
+func TestS3Storage_Creation(t *testing.T) {
 	// 从环境变量获取测试配置
-	testConfig := testconfig.GetMinIOTestConfig()
-	config := &MinIOConfig{
-		Endpoint:  testConfig.GetEndpoint(),
-		AccessKey: testConfig.AccessKey,
-		SecretKey: testConfig.SecretKey,
-		UseSSL:    testConfig.UseSSL,
-		Region:    testConfig.Region,
+	appConfig, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	s3Config := &S3Config{
+		Endpoint:  fmt.Sprintf("%s:%d", appConfig.S3Host, appConfig.S3Port),
+		AccessKey: appConfig.S3AccessKeyID,
+		SecretKey: appConfig.S3SecretAccessKey,
+		UseSSL:    appConfig.S3UseSSL,
+		Region:    appConfig.S3Region,
 	}
 
 	// 测试正常创建
-	storage, err := NewMinIOStorage(config)
+	storage, err := NewS3Storage(s3Config)
 
-	require.NoError(t, err, "创建MinIO存储实例应该成功")
+	require.NoError(t, err, "创建S3存储实例应该成功")
 	require.NotNil(t, storage, "存储实例不应为空")
-	require.NotNil(t, storage.client, "MinIO客户端不应为空")
+	require.IsType(t, &s3.Client{}, storage.client, "S3客户端类型不正确")
 	require.NotNil(t, storage.config, "配置不应为空")
 }
 
-// TestMinIOStorage_Creation_WithNilConfig 测试使用空配置创建
-func TestMinIOStorage_Creation_WithNilConfig(t *testing.T) {
-	storage, err := NewMinIOStorage(nil)
+// TestS3Storage_Creation_WithNilConfig 测试使用空配置创建
+func TestS3Storage_Creation_WithNilConfig(t *testing.T) {
+	storage, err := NewS3Storage(nil)
 
 	require.Error(t, err, "使用空配置应该返回错误")
 	require.Nil(t, storage, "存储实例应为空")
 	assert.Contains(t, err.Error(), "配置不能为空", "错误信息应该包含配置为空的提示")
 }
 
-// TestMinIOStorage_Connection 测试MinIO连接（需要真实服务）
-func TestMinIOStorage_Connection(t *testing.T) {
-	if !isMinIOAvailable() {
-		t.Skip("跳过测试：MinIO服务不可用")
+// TestS3Storage_Connection 测试S3连接（需要真实服务）
+func TestS3Storage_Connection(t *testing.T) {
+	if !isS3Available() {
+		t.Skip("跳过测试：S3服务不可用")
 	}
 
 	storage := setupTestStorage(t)
 	ctx := context.Background()
 
 	err := storage.TestConnection(ctx)
-	assert.NoError(t, err, "MinIO连接测试应该成功")
+	assert.NoError(t, err, "S3连接测试应该成功")
 }
 
-// TestMinIOStorage_BucketOperations 测试存储桶操作（需要真实服务）
-func TestMinIOStorage_BucketOperations(t *testing.T) {
-	if !isMinIOAvailable() {
-		t.Skip("跳过测试：MinIO服务不可用")
+// TestS3Storage_BucketOperations 测试存储桶操作（需要真实服务）
+func TestS3Storage_BucketOperations(t *testing.T) {
+	if !isS3Available() {
+		t.Skip("跳过测试：S3服务不可用")
 	}
 
 	storage := setupTestStorage(t)
@@ -84,10 +88,10 @@ func TestMinIOStorage_BucketOperations(t *testing.T) {
 	}()
 }
 
-// TestMinIOStorage_FileOperations 测试文件操作（需要真实服务）
-func TestMinIOStorage_FileOperations(t *testing.T) {
-	if !isMinIOAvailable() {
-		t.Skip("跳过测试：MinIO服务不可用")
+// TestS3Storage_FileOperations 测试文件操作（需要真实服务）
+func TestS3Storage_FileOperations(t *testing.T) {
+	if !isS3Available() {
+		t.Skip("跳过测试：S3服务不可用")
 	}
 
 	storage := setupTestStorage(t)
@@ -109,6 +113,7 @@ func TestMinIOStorage_FileOperations(t *testing.T) {
 	uploadResult, err := storage.UploadFile(ctx, testBucket, objectName, testData, contentType)
 	assert.NoError(t, err, "文件上传应该成功")
 	assert.NotNil(t, uploadResult, "上传结果不应为空")
+	assert.Equal(t, strings.Trim(uploadResult.ETag, "\""), strings.Trim(uploadResult.ETag, "\""), "上传文件ETag应该匹配")
 	assert.Equal(t, int64(len(testData)), uploadResult.Size, "上传文件大小应该匹配")
 
 	// 测试文件存在性检查
@@ -129,6 +134,7 @@ func TestMinIOStorage_FileOperations(t *testing.T) {
 	assert.Equal(t, objectName, fileInfo.Key, "文件名应该匹配")
 	assert.Equal(t, int64(len(testData)), fileInfo.Size, "文件大小应该匹配")
 	assert.Equal(t, contentType, fileInfo.ContentType, "内容类型应该匹配")
+	assert.Equal(t, strings.Trim(uploadResult.ETag, "\""), strings.Trim(fileInfo.ETag, "\""), "ETag应该匹配")
 
 	// 测试文件删除
 	err = storage.DeleteFile(ctx, testBucket, objectName)
@@ -140,10 +146,10 @@ func TestMinIOStorage_FileOperations(t *testing.T) {
 	assert.False(t, exists, "删除后文件应该不存在")
 }
 
-// TestMinIOStorage_ListFiles 测试文件列表（需要真实服务）
-func TestMinIOStorage_ListFiles(t *testing.T) {
-	if !isMinIOAvailable() {
-		t.Skip("跳过测试：MinIO服务不可用")
+// TestS3Storage_ListFiles 测试文件列表（需要真实服务）
+func TestS3Storage_ListFiles(t *testing.T) {
+	if !isS3Available() {
+		t.Skip("跳过测试：S3服务不可用")
 	}
 
 	storage := setupTestStorage(t)
@@ -175,7 +181,7 @@ func TestMinIOStorage_ListFiles(t *testing.T) {
 	for _, file := range testFiles {
 		_, err := storage.UploadFile(ctx, testBucket, file.name, file.data, "video/mp4")
 		require.NoError(t, err)
-		
+
 		// 验证文件确实上传成功
 		exists, err := storage.FileExists(ctx, testBucket, file.name)
 		require.NoError(t, err)
@@ -193,10 +199,10 @@ func TestMinIOStorage_ListFiles(t *testing.T) {
 	assert.Len(t, files, 2, "2025年8月应该有2个文件")
 }
 
-// TestMinIOStorage_FileExists_NotFound 测试文件不存在的情况
-func TestMinIOStorage_FileExists_NotFound(t *testing.T) {
-	if !isMinIOAvailable() {
-		t.Skip("跳过测试：MinIO服务不可用")
+// TestS3Storage_FileExists_NotFound 测试文件不存在的情况
+func TestS3Storage_FileExists_NotFound(t *testing.T) {
+	if !isS3Available() {
+		t.Skip("跳过测试：S3服务不可用")
 	}
 
 	storage := setupTestStorage(t)
@@ -216,19 +222,23 @@ func TestMinIOStorage_FileExists_NotFound(t *testing.T) {
 	assert.False(t, exists, "不存在的文件应该返回false")
 }
 
-// isMinIOAvailable 检查MinIO服务是否可用
-func isMinIOAvailable() bool {
+// isS3Available 检查S3服务是否可用
+func isS3Available() bool {
 	// 尝试创建一个存储实例并测试连接
-	testConfig := testconfig.GetMinIOTestConfig()
-	config := &MinIOConfig{
-		Endpoint:  testConfig.GetEndpoint(),
-		AccessKey: testConfig.AccessKey,
-		SecretKey: testConfig.SecretKey,
-		UseSSL:    testConfig.UseSSL,
-		Region:    testConfig.Region,
+	appConfig, err := config.LoadConfig()
+	if err != nil {
+		return false
 	}
 
-	storage, err := NewMinIOStorage(config)
+	s3Config := &S3Config{
+		Endpoint:  fmt.Sprintf("%s:%d", appConfig.S3Host, appConfig.S3Port),
+		AccessKey: appConfig.S3AccessKeyID,
+		SecretKey: appConfig.S3SecretAccessKey,
+		UseSSL:    appConfig.S3UseSSL,
+		Region:    appConfig.S3Region,
+	}
+
+	storage, err := NewS3Storage(s3Config)
 	if err != nil {
 		return false
 	}
@@ -239,17 +249,19 @@ func isMinIOAvailable() bool {
 }
 
 // setupTestStorage 设置测试存储实例
-func setupTestStorage(t *testing.T) *MinIOStorage {
-	testConfig := testconfig.GetMinIOTestConfig()
-	config := &MinIOConfig{
-		Endpoint:  testConfig.GetEndpoint(),
-		AccessKey: testConfig.AccessKey,
-		SecretKey: testConfig.SecretKey,
-		UseSSL:    testConfig.UseSSL,
-		Region:    testConfig.Region,
+func setupTestStorage(t *testing.T) *S3Storage {
+	appConfig, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	s3Config := &S3Config{
+		Endpoint:  fmt.Sprintf("%s:%d", appConfig.S3Host, appConfig.S3Port),
+		AccessKey: appConfig.S3AccessKeyID,
+		SecretKey: appConfig.S3SecretAccessKey,
+		UseSSL:    appConfig.S3UseSSL,
+		Region:    appConfig.S3Region,
 	}
 
-	storage, err := NewMinIOStorage(config)
+	storage, err := NewS3Storage(s3Config)
 	require.NoError(t, err, "创建测试存储实例应该成功")
 
 	return storage
