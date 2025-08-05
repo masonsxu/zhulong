@@ -25,7 +25,7 @@ type VideoService struct {
 	config             *config.Config
 	storageClient      storage.StorageInterface
 	uploadService      *upload.UploadService
-	metadataService    *metadata.MetadataService
+	metadataService    metadata.MetadataServiceInterface
 	videoValidator     *video.VideoValidator
 	videoExtractor     *video.VideoInfoExtractor
 	thumbnailGenerator *video.ThumbnailGenerator
@@ -35,19 +35,19 @@ type VideoService struct {
 // NewVideoService 创建视频服务
 func NewVideoService() (*VideoService, error) {
 	// 加载配置
-	cfg, err := config.Load()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("加载配置失败: %v", err)
 	}
 
 	// 初始化数据库连接
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Shanghai",
-		cfg.Postgres.Host,
-		cfg.Postgres.User,
-		cfg.Postgres.Password,
-		cfg.Postgres.DBName,
-		cfg.Postgres.Port,
-		cfg.Postgres.SSLMode,
+		cfg.PostgresHost,
+		cfg.PostgresUser,
+		cfg.PostgresPassword,
+		cfg.PostgresDBName,
+		cfg.PostgresPort,
+		cfg.PostgresSSLMode,
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -55,12 +55,12 @@ func NewVideoService() (*VideoService, error) {
 	}
 
 	// 初始化存储客户端
-	storageClient, err := storage.NewMinIOStorage(&storage.MinIOConfig{
-		Endpoint:  cfg.MinIO.Endpoint,
-		AccessKey: cfg.MinIO.AccessKey,
-		SecretKey: cfg.MinIO.SecretKey,
-		UseSSL:    cfg.MinIO.UseSSL,
-		Region:    cfg.MinIO.Region,
+	storageClient, err := storage.NewS3Storage(&storage.S3Config{
+		Endpoint:  fmt.Sprintf("http://%s:%d", cfg.S3Host, cfg.S3Port),
+		AccessKey: cfg.S3AccessKeyID,
+		SecretKey: cfg.S3SecretAccessKey,
+		UseSSL:    cfg.S3UseSSL,
+		Region:    cfg.S3Region,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化存储客户端失败: %v", err)
@@ -80,7 +80,7 @@ func NewVideoService() (*VideoService, error) {
 	return &VideoService{
 		config:             cfg,
 		storageClient:      storageClient,
-	uploadService:      uploadService,
+		uploadService:      uploadService,
 		metadataService:    metadataService,
 		videoValidator:     videoValidator,
 		videoExtractor:     videoExtractor,
@@ -155,7 +155,7 @@ func (s *VideoService) UploadVideo(ctx context.Context, req *api.VideoUploadRequ
 
 	// 上传文件到存储
 	uploadRequest := &upload.UploadRequest{
-		BucketName:  "zhulong-videos", // 暂时硬编码，后续从配置获取
+		BucketName:  s.config.S3Bucket, // 从配置获取
 		FileName:    objectName,
 		Reader:      file,
 		Size:        fileHeader.Size,
@@ -185,7 +185,7 @@ func (s *VideoService) UploadVideo(ctx context.Context, req *api.VideoUploadRequ
 		// 上传缩略图
 		thumbnailObjectName := fmt.Sprintf("thumbnails/%d/%02d/%s.jpg", now.Year(), now.Month(), videoID)
 		thumbnailUploadRequest := &upload.UploadRequest{
-			BucketName:  "zhulong-videos",
+			BucketName:  s.config.S3Bucket,
 			FileName:    thumbnailObjectName,
 			Reader:      bytes.NewReader(thumbnailResult.ImageData),
 			Size:        thumbnailResult.FileSize,
@@ -201,7 +201,7 @@ func (s *VideoService) UploadVideo(ctx context.Context, req *api.VideoUploadRequ
 	// 保存元数据
 	metadataRequest := &metadata.FileMetadata{
 		FileID:      videoID,
-		BucketName:  "zhulong-videos",
+		BucketName:  s.config.S3Bucket,
 		ObjectName:  objectName,
 		FileName:    fileHeader.Filename,
 		Title:       getValueOrDefaultFromString(req.Title, fileHeader.Filename),
@@ -347,8 +347,7 @@ func (s *VideoService) GetVideoList(ctx context.Context, req *api.VideoListReque
 			fmt.Sscanf(metadata.Resolution, "%dx%d", &video.Width, &video.Height)
 		}
 
-	
-videos = append(videos, video)
+		videos = append(videos, video)
 	}
 
 	return &api.VideoListResponse{
