@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -14,23 +15,18 @@ import (
 
 func main() {
 	// 加载配置
-	cfg, err := config.Load()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("配置加载失败: %v", err)
 	}
 
-	// 验证配置
-	if err := cfg.Validate(); err != nil {
-		log.Fatalf("配置验证失败: %v", err)
-	}
-
 	// 打印配置信息（用于调试）
-	if cfg.App.Debug {
-		cfg.PrintConfig()
+	if cfg.AppDebug {
+		fmt.Printf("Loaded configuration: %+v\n", cfg)
 	}
 
 	// 创建Hertz服务器，使用配置中的地址
-	h := server.Default(server.WithHostPorts(cfg.GetServerAddr()))
+	h := server.Default(server.WithHostPorts(fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)))
 
 	// 配置CORS中间件
 	h.Use(cors.New(cors.Config{

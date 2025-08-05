@@ -10,6 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type MetadataServiceInterface interface {
+	SaveMetadata(ctx context.Context, metadata *FileMetadata) error
+	GetMetadata(ctx context.Context, fileID string) (*FileMetadata, error)
+	DeleteMetadata(ctx context.Context, fileID string) error
+	ListMetadata(ctx context.Context, req *ListMetadataRequest) (*ListMetadataResponse, error)
+}
+
 // MetadataService 文件元数据管理服务
 type MetadataService struct {
 	db *gorm.DB
@@ -77,7 +84,7 @@ type ListMetadataResponse struct {
 }
 
 // NewMetadataService 创建元数据服务
-func NewMetadataService(database *gorm.DB) (*MetadataService, error) {
+func NewMetadataService(database *gorm.DB) (MetadataServiceInterface, error) {
 	// 自动迁移数据库表
 	err := database.AutoMigrate(&db.VideoMetadata{})
 	if err != nil {

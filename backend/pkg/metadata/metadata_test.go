@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/manteia/zhulong/biz/model/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,11 +16,16 @@ import (
 
 var (
 	dbConn *gorm.DB
-	ms     *MetadataService
+	ms     MetadataServiceInterface
 )
 
 // TestMain a special function that is called before any tests are run
 func TestMain(m *testing.M) {
+	// Load .env file for tests
+	if err := godotenv.Load("/home/manteia/workspace/zhulong/config/.env"); err != nil {
+		fmt.Println("Warning: Error loading .env file for tests:", err)
+	}
+
 	// Set up the database connection
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
 		getEnv("POSTGRES_HOST", "localhost"),
@@ -33,6 +39,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
+
+	// Drop and recreate table for a clean test environment
+	dbConn.Migrator().DropTable(&db.VideoMetadata{})
+	dbConn.AutoMigrate(&db.VideoMetadata{})
 
 	// Set up the metadata service
 	ms, err = NewMetadataService(dbConn)
@@ -124,6 +134,9 @@ func TestMetadataService_DeleteMetadata(t *testing.T) {
 
 // TestMetadataService_ListMetadata tests listing metadata
 func TestMetadataService_ListMetadata(t *testing.T) {
+	// Clear table before test to ensure clean state
+	dbConn.Exec("DELETE FROM video_metadata")
+
 	// Create some metadata objects
 	for i := 0; i < 5; i++ {
 		metadata := &FileMetadata{
