@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 科幻风格的基础样式 */
+@layer base {
+  * {
+    @apply border-dark-border;
+  }
+  
+  body {
+    @apply bg-dark-bg text-white font-cyber;
+    background-image: 
+      radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(255, 0, 128, 0.05) 0%, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  
+  /* 滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-bg;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-cyber-blue rounded-full;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-cyber-purple;
+  }
+}
+
+/* 科幻风格组件 */
+@layer components {
+  .cyber-card {
+    @apply bg-dark-card border border-dark-border rounded-lg p-6 
+           relative overflow-hidden;
+    background: linear-gradient(135deg, rgba(26, 26, 26, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+  }
+  
+  .cyber-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+    animation: scan 3s linear infinite;
+  }
+  
+  .cyber-button {
+    @apply px-6 py-3 rounded-lg font-cyber font-semibold text-white
+           transition-all duration-300 transform hover:scale-105
+           relative overflow-hidden;
+    background: linear-gradient(135deg, #00d4ff 0%, #8b5cf6 100%);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+  }
+  
+  .cyber-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+  }
+  
+  .cyber-button:hover::before {
+    left: 100%;
+  }
+  
+  .cyber-button:hover {
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
+  }
+  
+  .cyber-input {
+    @apply w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg
+           text-white placeholder-gray-500 focus:outline-none focus:border-cyber-blue
+           transition-all duration-300;
+    box-shadow: inset 0 0 10px rgba(0, 212, 255, 0.1);
+  }
+  
+  .cyber-input:focus {
+    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2), 0 0 20px rgba(0, 212, 255, 0.4);
+  }
+  
+  .neon-text {
+    @apply text-cyber-blue font-bold;
+    text-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff, 0 0 30px #00d4ff;
+  }
+  
+  .cyber-grid {
+    @apply relative;
+    background-image: 
+      linear-gradient(rgba(0, 212, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+  
+  .holographic {
+    @apply relative;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    backdrop-filter: blur(5px);
+  }
+  
+  .data-stream {
+    @apply font-mono text-xs text-cyber-green;
+    text-shadow: 0 0 5px #00ff88;
+  }
+  
+  .cyber-badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+    background: linear-gradient(135deg, #00d4ff 0%, #8b5cf6 100%);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+  }
+  
+  .cyber-progress {
+    @apply w-full h-2 bg-dark-bg rounded-full overflow-hidden;
+    box-shadow: inset 0 0 10px rgba(0, 212, 255, 0.2);
+  }
+  
+  .cyber-progress-bar {
+    @apply h-full bg-gradient-to-r from-cyber-blue to-cyber-purple;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+/* 动画效果 */
+@keyframes data-flow {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-100px); opacity: 0; }
+}
+
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+
+@keyframes matrix {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-100vh); }
+}
+
+.glitch-effect {
+  animation: glitch 0.3s ease-in-out infinite;
+}
+
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 0, 0.03) 0px,
+    transparent 1px,
+    transparent 2px,
+    rgba(0, 255, 0, 0.03) 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .cyber-card {
+    @apply p-4;
+  }
+  
+  .cyber-button {
+    @apply px-4 py-2 text-sm;
+  }
+}
